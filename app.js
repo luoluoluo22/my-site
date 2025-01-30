@@ -1,93 +1,99 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 
 // 初始化 Supabase 客户端
-const supabaseConfig = window.ENV || {};
-const SUPABASE_URL = 'https://gptacdyjxmjzlmgwjmms.supabase.co';  // 直接使用完整URL
-const SUPABASE_ANON_KEY = supabaseConfig.SUPABASE_KEY || '你的默认开发密钥';
+const supabaseConfig = window.ENV || {}
+const SUPABASE_URL = 'https://gptacdyjxmjzlmgwjmms.supabase.co'
+const SUPABASE_ANON_KEY =
+  supabaseConfig.SUPABASE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwdGFjZHlqeG1qemxtZ3dqbW1zIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODI0OTE3NiwiZXhwIjoyMDUzODI1MTc2fQ.s7bAW6GQZZI8vEScMTN8ZQqwi5fr9IvP5u_yaaKv5Kc'
+
+// 将 supabaseClient 声明移到全局作用域
+let supabaseClient
 
 try {
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 } catch (error) {
-    console.error('Supabase 初始化失败:', error);
+  console.error('Supabase 初始化失败:', error)
 }
 
 let notes = []
 
 // 获取所有笔记
 async function fetchNotes() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('notes')
-            .select('*')
-            .order('created_at', { ascending: false })
-        
-        if (error) throw error
-        notes = data
-        displayNotes()
-    } catch (error) {
-        console.error('Error fetching notes:', error)
-        alert('获取笔记失败')
-    }
+  try {
+    const { data, error } = await supabaseClient
+      .from('notes')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    notes = data
+    displayNotes()
+  } catch (error) {
+    console.error('Error fetching notes:', error)
+    alert('获取笔记失败')
+  }
 }
 
 // 保存笔记
 async function saveNote() {
-    const title = document.getElementById('noteTitle').value
-    const content = document.getElementById('noteContent').value
-    
-    if(!title || !content) {
-        alert('请输入标题和内容')
-        return
-    }
+  const title = document.getElementById('noteTitle').value
+  const content = document.getElementById('noteContent').value
 
-    try {
-        const { data, error } = await supabaseClient
-            .from('notes')
-            .insert([
-                { title, content }
-            ])
-            .select()
-        
-        if (error) throw error
-        await fetchNotes()
-        clearForm()
-    } catch (error) {
-        console.error('Error saving note:', error)
-        alert('保存笔记失败')
-    }
+  if (!title || !content) {
+    alert('请输入标题和内容')
+    return
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('notes')
+      .insert([{ title, content }])
+      .select()
+
+    if (error) throw error
+    await fetchNotes()
+    clearForm()
+  } catch (error) {
+    console.error('Error saving note:', error)
+    alert('保存笔记失败')
+  }
 }
 
 // 删除笔记
 async function deleteNote(id) {
-    try {
-        const { error } = await supabaseClient
-            .from('notes')
-            .delete()
-            .eq('id', id)
-        
-        if (error) throw error
-        await fetchNotes()
-    } catch (error) {
-        console.error('Error deleting note:', error)
-        alert('删除笔记失败')
-    }
+  try {
+    const { error } = await supabaseClient.from('notes').delete().eq('id', id)
+
+    if (error) throw error
+    await fetchNotes()
+  } catch (error) {
+    console.error('Error deleting note:', error)
+    alert('删除笔记失败')
+  }
 }
 
 function displayNotes() {
-    const notesList = document.getElementById('notesList')
-    notesList.innerHTML = notes.map(note => `
+  const notesList = document.getElementById('notesList')
+  notesList.innerHTML = notes
+    .map(
+      (note) => `
         <div class="note-item">
             <h3>${note.title}</h3>
             <p>${note.content}</p>
             <small>${new Date(note.created_at).toLocaleString()}</small>
-            <button onclick="deleteNote(${note.id})" style="background: #ff4444">删除</button>
+            <button onclick="deleteNote(${
+              note.id
+            })" style="background: #ff4444">删除</button>
         </div>
-    `).join('')
+    `
+    )
+    .join('')
 }
 
 function clearForm() {
-    document.getElementById('noteTitle').value = ''
-    document.getElementById('noteContent').value = ''
+  document.getElementById('noteTitle').value = ''
+  document.getElementById('noteContent').value = ''
 }
 
 // 导出函数
