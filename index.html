@@ -4,6 +4,13 @@
 <head>
     <title>我的个人管家</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 注入环境变量 -->
+    <script>
+        window.ENV = {
+            SUPABASE_URL: 'https://gptacdyjxmjzlmgwjmms.supabase.co',  // 直接硬编码URL
+            SUPABASE_KEY: '<%=process.env.VITE_SUPABASE_KEY%>'
+        };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -11,12 +18,15 @@
         <div class="note-form">
             <input type="text" id="noteTitle" placeholder="标题">
             <textarea id="noteContent" placeholder="输入笔记内容..."></textarea>
-            <button onclick="saveNote()">保存笔记</button>
+            <button id="saveButton">保存笔记</button>
         </div>
         <div id="notesList" class="notes-list">
             <!-- 笔记将在这里动态显示 -->
         </div>
     </div>
-    <script src="app.js"></script>
+    <script type="module">
+        import * as NoteApp from './app.js';
+        document.getElementById('saveButton').addEventListener('click', NoteApp.saveNote);
+    </script>
 </body>
 </html>
