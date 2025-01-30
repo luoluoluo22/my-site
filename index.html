@@ -2,11 +2,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Simple Site</title>
+    <title>我的个人管家</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Hello Netlify!</h1>
-    <p>This is a simple static site.</p>
+    <div class="container">
+        <h1>我的个人笔记</h1>
+        <div class="note-form">
+            <input type="text" id="noteTitle" placeholder="标题">
+            <textarea id="noteContent" placeholder="输入笔记内容..."></textarea>
+            <button onclick="saveNote()">保存笔记</button>
+        </div>
+        <div id="notesList" class="notes-list">
+            <!-- 笔记将在这里动态显示 -->
+        </div>
+    </div>
+    <script src="app.js"></script>
 </body>
 </html>
