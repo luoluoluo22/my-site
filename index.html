@@ -52,6 +52,28 @@
       </div>
     </div>
 
+    <!-- 帮助提示 -->
+    <div id="helpPanel" class="help-panel hidden">
+      <div class="help-content">
+        <h3>编辑快捷键</h3>
+        <ul>
+          <li><kbd>Ctrl</kbd> + <kbd>B</kbd> - 加粗文本</li>
+          <li><kbd>Ctrl</kbd> + <kbd>I</kbd> - 斜体文本</li>
+          <li><kbd>Ctrl</kbd> + <kbd>K</kbd> - 插入链接</li>
+          <li><kbd>Ctrl</kbd> + <kbd>H</kbd> - 文本高亮</li>
+          <li><kbd>Ctrl</kbd> + <kbd>S</kbd> - 保存笔记</li>
+          <li><kbd>Tab</kbd> - 插入缩进</li>
+        </ul>
+        <p class="help-note">注：Mac用户使用 Command 键代替 Ctrl 键</p>
+        <button
+          class="close-help"
+          onclick="document.getElementById('helpPanel').classList.add('hidden')"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+
     <!-- 主要内容区域 -->
     <div id="mainContent" class="app-container">
       <!-- 左侧笔记列表 -->
@@ -79,6 +101,17 @@
               class="title-input"
             />
             <div class="toolbar-buttons">
+              <button
+                class="help-btn"
+                onclick="document.getElementById('helpPanel').classList.remove('hidden')"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path
+                    fill="currentColor"
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92c-.5.51-.86.97-1.04 1.69-.08.32-.13.68-.13 1.14h-2v-.5c0-.46.08-.9.22-1.31.2-.58.53-1.1.95-1.52l1.24-1.26c.46-.44.68-1.1.55-1.8-.13-.72-.73-1.31-1.44-1.44-.52-.09-1.04.07-1.45.41-.42.34-.65.84-.65 1.37h-2c0-1.1.44-2.11 1.21-2.83.77-.72 1.79-1.09 2.83-1.02 1.38.12 2.5 1.24 2.62 2.62.08.89-.23 1.79-.85 2.53z"
+                  />
+                </svg>
+              </button>
               <button id="previewToggle" class="preview-btn">预览</button>
               <button id="saveButton" class="save-btn">保存</button>
             </div>
@@ -102,7 +135,7 @@
       import * as NoteApp from './app.js'
       document
         .getElementById('saveButton')
-        .addEventListener('click', NoteApp.saveNote)
+        .addEventListener('click', () => NoteApp.saveNote(false))
       document
         .getElementById('newNoteBtn')
         .addEventListener('click', NoteApp.createNewNote)

@@ -10,6 +10,7 @@ let currentNote = null
 let notes = []
 let isAuthenticated = false
 let isPreviewMode = false
+let autoSaveTimeout = null
 
 try {
   supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -21,11 +22,10 @@ try {
 async function checkStoredAuth() {
   const storedPassword = localStorage.getItem('noteAppPassword')
   if (storedPassword) {
-    await authenticate(storedPassword, false) // false表示不需要再次存储密码
+    await authenticate(storedPassword, false)
   } else {
     showLoginPanel()
   }
-  // 移除加载状态
   document.getElementById('loading').style.display = 'none'
 }
 
@@ -59,6 +59,7 @@ async function authenticate(password, shouldStore = true) {
       showMainContent()
       await fetchNotes()
       handleUrlRoute()
+      setupEditorKeyBindings()
     } else {
       showLoginPanel()
       if (shouldStore) {
@@ -81,6 +82,113 @@ function logout() {
   showLoginPanel()
   currentNote = null
   notes = []
+}
+
+// 设置编辑器快捷键
+function setupEditorKeyBindings() {
+  const editor = document.getElementById('noteContent')
+
+  editor.addEventListener('keydown', (e) => {
+    // 如果按下了Ctrl键（Windows）或Command键（Mac）
+    if (e.ctrlKey || e.metaKey) {
+      const start = editor.selectionStart
+      const end = editor.selectionEnd
+      const selectedText = editor.value.substring(start, end)
+
+      switch (e.key.toLowerCase()) {
+        case 'b': // 加粗
+          e.preventDefault()
+          insertMarkdown('**', '**', selectedText)
+          break
+        case 'i': // 斜体
+          e.preventDefault()
+          insertMarkdown('*', '*', selectedText)
+          break
+        case 'k': // 链接
+          e.preventDefault()
+          if (selectedText) {
+            insertMarkdown('[', '](url)', selectedText)
+          } else {
+            insertMarkdown('[', '](url)', 'link text')
+          }
+          break
+        case 'h': // 高亮
+          e.preventDefault()
+          insertMarkdown('==', '==', selectedText)
+          break
+        case 's': // 保存
+          e.preventDefault()
+          saveNote()
+          break
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      insertText('  ') // 插入两个空格
+    }
+  })
+
+  // 设置自动保存
+  editor.addEventListener('input', () => {
+    clearTimeout(autoSaveTimeout)
+    autoSaveTimeout = setTimeout(autoSave, 2000) // 2秒后自动保存
+  })
+
+  document.getElementById('noteTitle').addEventListener('input', () => {
+    clearTimeout(autoSaveTimeout)
+    autoSaveTimeout = setTimeout(autoSave, 2000)
+  })
+}
+
+// 插入Markdown标记
+function insertMarkdown(prefix, suffix, selected) {
+  const editor = document.getElementById('noteContent')
+  const start = editor.selectionStart
+  const end = editor.selectionEnd
+
+  const before = editor.value.substring(0, start)
+  const after = editor.value.substring(end)
+
+  editor.value = before + prefix + (selected || '') + suffix + after
+
+  const newCursorPos = selected
+    ? start + prefix.length + selected.length + suffix.length
+    : start + prefix.length
+
+  editor.focus()
+  editor.selectionStart = newCursorPos
+  editor.selectionEnd = newCursorPos
+
+  updatePreview()
+}
+
+// 插入文本
+function insertText(text) {
+  const editor = document.getElementById('noteContent')
+  const start = editor.selectionStart
+
+  editor.value =
+    editor.value.substring(0, start) + text + editor.value.substring(start)
+  editor.selectionStart = editor.selectionEnd = start + text.length
+
+  updatePreview()
+}
+
+// 自动保存
+async function autoSave() {
+  if (!isAuthenticated || !document.getElementById('noteTitle').value) return
+
+  const saveBtn = document.getElementById('saveButton')
+  const originalText = saveBtn.textContent
+
+  try {
+    await saveNote(true) // true表示这是自动保存
+    saveBtn.textContent = '已自动保存'
+    setTimeout(() => (saveBtn.textContent = originalText), 2000)
+  } catch (error) {
+    console.error('Auto save failed:', error)
+    saveBtn.textContent = '自动保存失败'
+    setTimeout(() => (saveBtn.textContent = originalText), 2000)
+  }
 }
 
 // 切换预览模式
@@ -127,7 +235,7 @@ async function handleUrlRoute() {
   if (!isAuthenticated) return
 
   const path = window.location.pathname
-  const noteName = path.substring(1) // 移除开头的/
+  const noteName = path.substring(1)
 
   if (noteName) {
     const existingNote = notes.find((note) => note.title === noteName)
@@ -159,14 +267,14 @@ async function createNewNoteWithTitle(title) {
 }
 
 // 保存笔记
-async function saveNote() {
+async function saveNote(isAutoSave = false) {
   if (!isAuthenticated) return
 
   const title = document.getElementById('noteTitle').value
   const content = document.getElementById('noteContent').value
 
   if (!title) {
-    alert('请输入标题')
+    if (!isAutoSave) alert('请输入标题')
     return
   }
 
@@ -180,7 +288,6 @@ async function saveNote() {
 
       if (error) throw error
 
-      // 更新URL
       history.pushState({}, '', `/${title}`)
     } else {
       const { data, error } = await supabaseClient
@@ -190,14 +297,18 @@ async function saveNote() {
 
       if (error) throw error
 
-      // 更新URL
       history.pushState({}, '', `/${title}`)
     }
 
-    await fetchNotes()
+    if (!isAutoSave) {
+      await fetchNotes()
+    }
   } catch (error) {
     console.error('Error saving note:', error)
-    alert('保存笔记失败')
+    if (!isAutoSave) {
+      alert('保存笔记失败')
+    }
+    throw error
   }
 }
 
@@ -259,7 +370,6 @@ function selectNote(id) {
   updatePreview()
   displayNotesList()
 
-  // 更新URL
   history.pushState({}, '', `/${currentNote.title}`)
 }
 
@@ -308,8 +418,7 @@ window.deleteNote = deleteNote
 window.authenticate = authenticate
 window.logout = logout
 
-// 页面加载时检查URL路由
+// 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
-  // 检查是否有存储的密码
   checkStoredAuth()
 })
