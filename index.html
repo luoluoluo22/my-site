@@ -5,10 +5,11 @@
     <link rel="stylesheet" href="style.css" />
     <!-- marked.js用于Markdown解析 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 环境变量配置 -->
     <script>
       window.ENV = {
         SUPABASE_URL: 'https://gptacdyjxmjzlmgwjmms.supabase.co',
-        SUPABASE_KEY: '<%=process.env.VITE_SUPABASE_KEY%>',
+        SUPABASE_KEY: '<%=process.env.VITE_SUPABASE_KEY%>', // 将被build.js替换
       }
     </script>
   </head>
