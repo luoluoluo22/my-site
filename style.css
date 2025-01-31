@@ -226,12 +226,20 @@ kbd {
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--border-color);
-    transition: width 0.3s;
+    transition: all 0.3s ease;
     background-color: var(--bg-secondary);
+    position: relative;
 }
 
 .sidebar.collapsed {
     width: 0;
+    padding: 0;
+    border: none;
+}
+
+.sidebar.collapsed * {
+    visibility: hidden;
+    opacity: 0;
 }
 
 .sidebar-header {
@@ -253,17 +261,48 @@ kbd {
 }
 
 .note-item {
-    padding: 1rem;
+    padding: 0.5rem;
     margin-bottom: 0.5rem;
     border-radius: 4px;
-    cursor: pointer;
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-.note-item.selected {
-    background-color: var(--bg-tertiary);
-    border-left: 3px solid var(--accent-color);
+.note-content {
+    flex: 1;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.note-title {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.note-date {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.delete-note-btn {
+    padding: 4px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+}
+
+.note-item:hover .delete-note-btn {
+    opacity: 1;
+}
+
+.delete-note-btn:hover {
+    color: var(--danger-color);
 }
 
 /* 主内容区域 */
@@ -272,7 +311,7 @@ kbd {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-left: 4rem;
+    padding: 1rem;
 }
 
 .note-editor {
@@ -473,9 +512,9 @@ textarea:focus {
 
 /* 侧边栏折叠按钮 */
 .sidebar-toggle {
-    position: fixed;
+    position: absolute;
     top: 1rem;
-    left: 1rem;
+    right: -2.5rem;
     z-index: 100;
     padding: 8px;
     background: var(--bg-primary);
@@ -496,4 +535,79 @@ textarea:focus {
     width: 20px;
     height: 20px;
     color: var(--text-primary);
+}
+
+/* 消息提示样式 */
+.message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 4px;
+    color: white;
+    font-size: 14px;
+    z-index: 2000;
+    animation: slide-in 0.3s ease;
+}
+
+.message.success {
+    background-color: var(--accent-color);
+}
+
+.message.error {
+    background-color: var(--danger-color);
+}
+
+.message.fade-out {
+    animation: fade-out 0.3s ease forwards;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* 底部操作栏 */
+.sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+    margin-top: auto;
+}
+
+.theme-toggle,
+.logout-btn {
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* 选中状态 */
+.note-item.selected {
+    background-color: var(--bg-tertiary);
+    border-left: 3px solid var(--accent-color);
 }

@@ -138,6 +138,7 @@ async function loadNotes() {
 
     if (error) throw error
     
+    console.log('加载的笔记:', notes_data) // 添加调试日志
     notes = notes_data
     currentNote = notes[0] || null
     updateNotesList()
@@ -264,6 +265,11 @@ async function createNewNote() {
 async function deleteNote(noteId) {
   if (!isAuthenticated) return
 
+  // 显示确认弹窗
+  if (!confirm('确定要删除这条笔记吗？此操作不可恢复。')) {
+    return
+  }
+
   try {
     const { error } = await supabaseClient
       .from('notes')
@@ -272,9 +278,11 @@ async function deleteNote(noteId) {
 
     if (error) throw error
 
+    showMessage('笔记已删除')
     await loadNotes()
   } catch (error) {
     console.error('删除笔记失败:', error)
+    showMessage('删除失败: ' + error.message, 'error')
   }
 }
 
@@ -342,34 +350,42 @@ function updateNotesList(filteredNotes = null) {
   notesListElement.innerHTML = displayNotes
     .map(
       (note) => `
-      <div class="note-item ${note.id === currentNote?.id ? 'selected' : ''}" 
-           data-note-id="${note.id}">
-        <div class="note-title">${note.title || '无标题'}</div>
-        <div class="note-date">${new Date(
-          note.updated_at
-        ).toLocaleDateString()}</div>
+      <div class="note-item ${note.id === currentNote?.id ? 'selected' : ''}">
+        <div class="note-content" onclick="window.handleNoteClick(${note.id})">
+          <div class="note-title">${note.title || '无标题'}</div>
+          <div class="note-date">${new Date(
+            note.updated_at
+          ).toLocaleDateString()}</div>
+        </div>
+        <button class="delete-note-btn" onclick="window.deleteNote(${note.id})" title="删除笔记">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </button>
       </div>
     `
     )
     .join('')
-
-  // 添加点击事件监听
-  const noteItems = notesListElement.querySelectorAll('.note-item')
-  noteItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const noteId = item.dataset.noteId
-      selectNote(noteId)
-    })
-  })
 }
 
 // 更新编辑器
 function updateEditor() {
+  console.log('更新编辑器，当前笔记:', currentNote) // 添加调试日志
+  
   const titleElement = document.getElementById('noteTitle')
   const contentElement = document.getElementById('noteContent')
   const previewElement = document.getElementById('preview')
 
+  if (!titleElement || !contentElement || !previewElement) {
+    console.error('找不到编辑器元素')
+    return
+  }
+
   if (currentNote) {
+    console.log('设置笔记内容:', {
+      title: currentNote.title,
+      content: currentNote.content
+    })
     titleElement.value = currentNote.title || ''
     contentElement.value = currentNote.content || ''
     updatePreview()
@@ -384,12 +400,29 @@ function updateEditor() {
 
 // 选择笔记
 function selectNote(noteId) {
-  const note = notes.find((n) => n.id === noteId)
+  console.log('选择笔记:', noteId)
+  console.log('当前笔记列表:', notes) // 添加笔记列表日志
+  
+  // 确保 ID 类型一致（Supabase 返回的是数字类型）
+  const searchId = parseInt(noteId, 10)
+  const note = notes.find((n) => n.id === searchId)
+  
+  console.log('找到笔记:', note) // 添加调试日志
+  
   if (note) {
-    currentNote = note
+    currentNote = { ...note } // 创建笔记对象的副本
+    console.log('设置当前笔记:', currentNote)
     updateEditor()
     updateNotesList()
+  } else {
+    console.error('未找到笔记:', noteId)
   }
+}
+
+// 处理笔记点击
+function handleNoteClick(noteId) {
+  console.log('点击笔记:', noteId) // 添加调试日志
+  selectNote(noteId)
 }
 
 // 页面加载时初始化
@@ -421,9 +454,11 @@ export {
   toggleSidebar,
   searchNotes,
   toggleTheme,
+  selectNote,  // 导出 selectNote
 }
 
-// 不再需要将 selectNote 绑定到 window 对象，因为我们使用了事件监听
+// 将必要的函数绑定到 window 对象
 window.deleteNote = deleteNote
 window.authenticate = authenticate
 window.logout = logout
+window.handleNoteClick = handleNoteClick  // 添加点击处理函数到全局
