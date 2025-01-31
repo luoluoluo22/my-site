@@ -51,6 +51,202 @@ function setupThemeListener() {
       }
     })
 }
+// 创建新笔记
+async function createNewNote() {
+  if (!isAuthenticated) return
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('notes')
+      .insert([
+        {
+          title: '新笔记',
+          content: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+
+    if (error) throw error
+
+    const newNote = data[0]
+    notes.unshift(newNote)
+    currentNote = newNote
+    updateNotesList()
+    updateEditor()
+  } catch (error) {
+    console.error('创建笔记失败:', error)
+  }
+}
+
+// 保存笔记
+async function saveNote(noteId, title, content) {
+  if (!isAuthenticated) return
+
+  try {
+    const { error } = await supabaseClient
+      .from('notes')
+      .update({
+        title,
+        content,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', noteId)
+
+    if (error) throw error
+
+    const noteIndex = notes.findIndex((note) => note.id === noteId)
+    if (noteIndex > -1) {
+      notes[noteIndex] = { ...notes[noteIndex], title, content }
+      updateNotesList()
+    }
+  } catch (error) {
+    console.error('保存笔记失败:', error)
+  }
+}
+
+// 删除笔记
+async function deleteNote(noteId) {
+  if (!isAuthenticated) return
+
+  try {
+    const { error } = await supabaseClient
+      .from('notes')
+      .delete()
+      .eq('id', noteId)
+
+    if (error) throw error
+
+    notes = notes.filter((note) => note.id !== noteId)
+    currentNote = notes[0] || null
+    updateNotesList()
+    updateEditor()
+  } catch (error) {
+    console.error('删除笔记失败:', error)
+  }
+}
+
+// 切换预览模式
+function togglePreview() {
+  isPreviewMode = !isPreviewMode
+  updatePreview()
+  document.body.classList.toggle('preview-mode', isPreviewMode)
+}
+
+// 更新预览
+function updatePreview() {
+  const previewElement = document.getElementById('preview')
+  if (!previewElement || !currentNote) return
+
+  const content = currentNote.content || ''
+  // 这里可以添加Markdown渲染逻辑
+  previewElement.innerHTML = content
+}
+
+// 切换侧边栏
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar')
+  if (sidebar) {
+    sidebar.classList.toggle('collapsed')
+    localStorage.setItem(
+      'sidebarCollapsed',
+      sidebar.classList.contains('collapsed')
+    )
+  }
+}
+
+// 恢复侧边栏状态
+function restoreSidebarState() {
+  const sidebar = document.querySelector('.sidebar')
+  if (sidebar) {
+    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'
+    sidebar.classList.toggle('collapsed', isCollapsed)
+  }
+}
+
+// 搜索笔记
+function searchNotes(query) {
+  const searchQuery = query.toLowerCase()
+  const filteredNotes = notes.filter(
+    (note) =>
+      note.title.toLowerCase().includes(searchQuery) ||
+      note.content.toLowerCase().includes(searchQuery)
+  )
+  updateNotesList(filteredNotes)
+}
+
+// 更新笔记列表
+function updateNotesList(filteredNotes = null) {
+  const notesListElement = document.getElementById('notesList')
+  if (!notesListElement) return
+
+  const displayNotes = filteredNotes || notes
+  notesListElement.innerHTML = displayNotes
+    .map(
+      (note) => `
+      <div class="note-item ${note.id === currentNote?.id ? 'selected' : ''}" 
+           onclick="selectNote('${note.id}')">
+        <div class="note-title">${note.title || '无标题'}</div>
+        <div class="note-date">${new Date(
+          note.updated_at
+        ).toLocaleDateString()}</div>
+      </div>
+    `
+    )
+    .join('')
+}
+
+// 更新编辑器
+function updateEditor() {
+  const titleElement = document.getElementById('noteTitle')
+  const contentElement = document.getElementById('noteContent')
+  const previewElement = document.getElementById('preview')
+
+  if (currentNote) {
+    titleElement.value = currentNote.title || ''
+    contentElement.value = currentNote.content || ''
+    updatePreview()
+    document.body.classList.add('note-selected')
+  } else {
+    titleElement.value = ''
+    contentElement.value = ''
+    previewElement.innerHTML = ''
+    document.body.classList.remove('note-selected')
+  }
+}
+
+// 加载笔记
+async function loadNotes() {
+  if (!isAuthenticated) return
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('notes')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    notes = data
+    currentNote = notes[0] || null
+    updateNotesList()
+    updateEditor()
+  } catch (error) {
+    console.error('加载笔记失败:', error)
+  }
+}
+
+// 选择笔记
+function selectNote(noteId) {
+  const note = notes.find((n) => n.id === noteId)
+  if (note) {
+    currentNote = note
+    updateEditor()
+    updateNotesList()
+  }
+}
+
 // 用户认证
 async function authenticate() {
   try {
