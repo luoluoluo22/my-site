@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 const SITE_PASSWORD = '123456' // 网站访问密码
 
 // 初始化Supabase客户端
-const SUPABASE_URL = 'https://gptacdyjxmjzlmgwjmms.supabase.co'
+const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://gptacdyjxmjzlmgwjmms.supabase.co'
 const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_KEY || ''
 
 let supabaseClient
@@ -29,7 +29,21 @@ try {
   if (!SUPABASE_ANON_KEY) {
     throw new Error('Supabase key not found. Please check your environment variables.')
   }
+  
+  console.log('初始化 Supabase:', {
+    url: SUPABASE_URL,
+    key: SUPABASE_ANON_KEY ? '已设置' : '未设置'
+  })
+  
   supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  
+  // 测试连接
+  supabaseClient.from('notes').select('count').then(() => {
+    console.log('Supabase 连接成功')
+  }).catch(error => {
+    console.error('Supabase 连接测试失败:', error)
+    showMessage('数据库连接测试失败: ' + error.message, 'error')
+  })
 } catch (error) {
   console.error('Supabase 初始化失败:', error)
   // 延迟显示错误消息，确保 DOM 已加载
