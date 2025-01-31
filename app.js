@@ -51,6 +51,68 @@ function setupThemeListener() {
       }
     })
 }
+// 用户认证
+async function authenticate() {
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'github',
+    })
+
+    if (error) {
+      console.error('认证错误:', error.message)
+      return false
+    }
+
+    if (user) {
+      isAuthenticated = true
+      localStorage.setItem('isAuthenticated', 'true')
+      document.body.classList.add('authenticated')
+      await loadNotes() // 加载用户的笔记
+      return true
+    }
+  } catch (error) {
+    console.error('认证过程发生错误:', error)
+    return false
+  }
+  return false
+}
+
+// 检查存储的认证状态
+async function checkStoredAuth() {
+  const storedAuth = localStorage.getItem('isAuthenticated')
+  if (storedAuth === 'true') {
+    const {
+      data: { user },
+      error,
+    } = await supabaseClient.auth.getUser()
+    if (user && !error) {
+      isAuthenticated = true
+      document.body.classList.add('authenticated')
+      await loadNotes()
+    } else {
+      localStorage.removeItem('isAuthenticated')
+    }
+  }
+}
+
+// 退出登录
+async function logout() {
+  try {
+    await supabaseClient.auth.signOut()
+    isAuthenticated = false
+    localStorage.removeItem('isAuthenticated')
+    document.body.classList.remove('authenticated')
+    notes = []
+    currentNote = null
+    updateNotesList()
+    updateEditor()
+  } catch (error) {
+    console.error('退出登录失败:', error)
+  }
+}
 
 // ... (保持其他现有代码不变) ...
 
