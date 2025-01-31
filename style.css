@@ -1,39 +1,196 @@
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-.note-form {
-    margin-bottom: 20px;
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
 }
 
-input, textarea {
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    width: 250px;
+    background-color: #f7f7f7;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-header h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+.new-note-btn {
     width: 100%;
-    margin-bottom: 10px;
     padding: 8px;
-}
-
-textarea {
-    height: 100px;
-}
-
-button {
-    background: #4CAF50;
+    background-color: #2ecc71;
     color: white;
-    padding: 10px 20px;
     border: none;
+    border-radius: 4px;
     cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.new-note-btn:hover {
+    background-color: #27ae60;
 }
 
 .notes-list {
-    border-top: 1px solid #ddd;
-    padding-top: 20px;
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
 }
 
 .note-item {
-    background: #f9f9f9;
-    padding: 15px;
-    margin-bottom: 10px;
+    padding: 8px 12px;
+    margin-bottom: 4px;
     border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.note-item:hover {
+    background-color: #e9e9e9;
+}
+
+.note-item.active {
+    background-color: #e0e0e0;
+}
+
+/* 主内容区域样式 */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+}
+
+.note-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 20px;
+}
+
+.note-toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+}
+
+.title-input {
+    flex: 1;
+    font-size: 24px;
+    padding: 8px;
+    border: none;
+    border-bottom: 2px solid #e0e0e0;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.title-input:focus {
+    border-color: #2ecc71;
+}
+
+.save-btn {
+    padding: 8px 16px;
+    background-color: #2ecc71;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.save-btn:hover {
+    background-color: #27ae60;
+}
+
+.editor-container {
+    display: flex;
+    flex: 1;
+    gap: 20px;
+    height: calc(100% - 60px);
+}
+
+#noteContent {
+    flex: 1;
+    padding: 16px;
+    font-size: 16px;
+    line-height: 1.6;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    resize: none;
+    outline: none;
+}
+
+.preview-panel {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+/* Markdown预览样式 */
+.preview-panel h1,
+.preview-panel h2,
+.preview-panel h3,
+.preview-panel h4,
+.preview-panel h5,
+.preview-panel h6 {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
+.preview-panel p {
+    margin-bottom: 1em;
+}
+
+.preview-panel ul,
+.preview-panel ol {
+    margin-left: 1.5em;
+    margin-bottom: 1em;
+}
+
+.preview-panel code {
+    background-color: #f5f5f5;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.preview-panel pre {
+    background-color: #f5f5f5;
+    padding: 16px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin-bottom: 1em;
+}
+
+.preview-panel blockquote {
+    border-left: 4px solid #e0e0e0;
+    padding-left: 16px;
+    margin-bottom: 1em;
+    color: #666;
+}
+
+.preview-panel img {
+    max-width: 100%;
+    height: auto;
 }

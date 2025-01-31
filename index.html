@@ -1,32 +1,65 @@
-<!-- index.html 示例 -->
 <!DOCTYPE html>
 <html>
-<head>
-    <title>我的个人管家</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- 注入环境变量 -->
+  <head>
+    <title>我的个人管理</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- marked.js用于Markdown解析 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
-        window.ENV = {
-            SUPABASE_URL: 'https://gptacdyjxmjzlmgwjmms.supabase.co',  // 直接硬编码URL
-            SUPABASE_KEY: '<%=process.env.VITE_SUPABASE_KEY%>'
-        };
+      window.ENV = {
+        SUPABASE_URL: 'https://gptacdyjxmjzlmgwjmms.supabase.co',
+        SUPABASE_KEY: '<%=process.env.VITE_SUPABASE_KEY%>',
+      }
     </script>
-</head>
-<body>
-    <div class="container">
-        <h1>我的个人笔记</h1>
-        <div class="note-form">
-            <input type="text" id="noteTitle" placeholder="标题">
-            <textarea id="noteContent" placeholder="输入笔记内容..."></textarea>
-            <button id="saveButton">保存笔记</button>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- 左侧笔记列表 -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h2>笔记列表</h2>
+          <button id="newNoteBtn" class="new-note-btn">新建笔记</button>
         </div>
         <div id="notesList" class="notes-list">
-            <!-- 笔记将在这里动态显示 -->
+          <!-- 笔记标题列表将在这里动态显示 -->
         </div>
+      </div>
+
+      <!-- 主要内容区域 -->
+      <div class="main-content">
+        <div class="note-editor" id="noteEditor">
+          <div class="note-toolbar">
+            <input
+              type="text"
+              id="noteTitle"
+              placeholder="笔记标题"
+              class="title-input"
+            />
+            <button id="saveButton" class="save-btn">保存</button>
+          </div>
+          <div class="editor-container">
+            <textarea
+              id="noteContent"
+              placeholder="在此输入笔记内容... (支持Markdown语法)"
+            ></textarea>
+            <div id="preview" class="preview-panel">
+              <!-- Markdown预览将在这里显示 -->
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <script type="module">
-        import * as NoteApp from './app.js';
-        document.getElementById('saveButton').addEventListener('click', NoteApp.saveNote);
+      import * as NoteApp from './app.js'
+      document
+        .getElementById('saveButton')
+        .addEventListener('click', NoteApp.saveNote)
+      document
+        .getElementById('newNoteBtn')
+        .addEventListener('click', NoteApp.createNewNote)
+      document
+        .getElementById('noteContent')
+        .addEventListener('input', NoteApp.updatePreview)
     </script>
-</body>
+  </body>
 </html>
