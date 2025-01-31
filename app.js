@@ -1,6 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 
-// 初始化 Supabase 客户端
+// 常量定义
+const SITE_PASSWORD = '123456' // 网站访问密码
+
+// 初始化Supabase客户端
 const supabaseConfig = window.ENV || {}
 const SUPABASE_URL = 'https://gptacdyjxmjzlmgwjmms.supabase.co'
 const SUPABASE_ANON_KEY = supabaseConfig.SUPABASE_KEY || ''
@@ -51,26 +54,78 @@ function setupThemeListener() {
       }
     })
 }
+
+// 初始化UI显示状态
+function initializeUIState() {
+  // 隐藏加载动画
+  const loadingElement = document.getElementById('loading')
+  if (loadingElement) {
+    loadingElement.style.display = 'none'
+  }
+
+  // 根据认证状态显示相应面板
+  const loginPanel = document.getElementById('loginPanel')
+  const mainContent = document.getElementById('mainContent')
+
+  if (isAuthenticated) {
+    if (loginPanel) loginPanel.style.visibility = 'hidden'
+    if (mainContent) mainContent.style.visibility = 'visible'
+  } else {
+    if (loginPanel) loginPanel.style.visibility = 'visible'
+    if (mainContent) mainContent.style.visibility = 'hidden'
+  }
+}
+
+// 密码认证
+async function authenticate(password) {
+  if (!password) {
+    return false
+  }
+
+  if (password === SITE_PASSWORD) {
+    isAuthenticated = true
+    localStorage.setItem('isAuthenticated', 'true')
+    initializeUIState()
+    await loadNotes() // 加载用户的笔记
+    return true
+  }
+  return false
+}
+
+// 检查存储的认证状态
+async function checkStoredAuth() {
+  const storedAuth = localStorage.getItem('isAuthenticated')
+  if (storedAuth === 'true') {
+    isAuthenticated = true
+    initializeUIState()
+    await loadNotes()
+  }
+}
+
+// 退出登录
+async function logout() {
+  isAuthenticated = false
+  localStorage.removeItem('isAuthenticated')
+  initializeUIState()
+  notes = []
+  currentNote = null
+  updateNotesList()
+  updateEditor()
+}
+
 // 创建新笔记
 async function createNewNote() {
   if (!isAuthenticated) return
 
   try {
-    const { data, error } = await supabaseClient
-      .from('notes')
-      .insert([
-        {
-          title: '新笔记',
-          content: '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
-      .select()
+    const newNote = {
+      id: Date.now().toString(),
+      title: '新笔记',
+      content: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
 
-    if (error) throw error
-
-    const newNote = data[0]
     notes.unshift(newNote)
     currentNote = newNote
     updateNotesList()
@@ -81,24 +136,24 @@ async function createNewNote() {
 }
 
 // 保存笔记
-async function saveNote(noteId, title, content) {
-  if (!isAuthenticated) return
+async function saveNote() {
+  if (!isAuthenticated || !currentNote) return
 
   try {
-    const { error } = await supabaseClient
-      .from('notes')
-      .update({
+    const titleElement = document.getElementById('noteTitle')
+    const contentElement = document.getElementById('noteContent')
+
+    const title = titleElement.value.trim()
+    const content = contentElement.value.trim()
+
+    const noteIndex = notes.findIndex((note) => note.id === currentNote.id)
+    if (noteIndex > -1) {
+      notes[noteIndex] = {
+        ...notes[noteIndex],
         title,
         content,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', noteId)
-
-    if (error) throw error
-
-    const noteIndex = notes.findIndex((note) => note.id === noteId)
-    if (noteIndex > -1) {
-      notes[noteIndex] = { ...notes[noteIndex], title, content }
+      }
       updateNotesList()
     }
   } catch (error) {
@@ -111,13 +166,6 @@ async function deleteNote(noteId) {
   if (!isAuthenticated) return
 
   try {
-    const { error } = await supabaseClient
-      .from('notes')
-      .delete()
-      .eq('id', noteId)
-
-    if (error) throw error
-
     notes = notes.filter((note) => note.id !== noteId)
     currentNote = notes[0] || null
     updateNotesList()
@@ -137,11 +185,17 @@ function togglePreview() {
 // 更新预览
 function updatePreview() {
   const previewElement = document.getElementById('preview')
-  if (!previewElement || !currentNote) return
+  const editArea = document.getElementById('editArea')
+  const contentElement = document.getElementById('noteContent')
 
-  const content = currentNote.content || ''
-  // 这里可以添加Markdown渲染逻辑
-  previewElement.innerHTML = content
+  if (!previewElement || !editArea || !contentElement) return
+
+  const content = contentElement.value || ''
+  previewElement.innerHTML = marked.parse(content)
+
+  // 切换预览/编辑区域的显示状态
+  previewElement.classList.toggle('hidden', !isPreviewMode)
+  editArea.classList.toggle('hidden', isPreviewMode)
 }
 
 // 切换侧边栏
@@ -221,14 +275,9 @@ async function loadNotes() {
   if (!isAuthenticated) return
 
   try {
-    const { data, error } = await supabaseClient
-      .from('notes')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    notes = data
+    // 这里可以添加从localStorage加载笔记的逻辑
+    const storedNotes = localStorage.getItem('notes')
+    notes = storedNotes ? JSON.parse(storedNotes) : []
     currentNote = notes[0] || null
     updateNotesList()
     updateEditor()
@@ -247,70 +296,21 @@ function selectNote(noteId) {
   }
 }
 
-// 用户认证
-async function authenticate() {
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabaseClient.auth.signInWithOAuth({
-      provider: 'github',
-    })
-
-    if (error) {
-      console.error('认证错误:', error.message)
-      return false
-    }
-
-    if (user) {
-      isAuthenticated = true
-      localStorage.setItem('isAuthenticated', 'true')
-      document.body.classList.add('authenticated')
-      await loadNotes() // 加载用户的笔记
-      return true
-    }
-  } catch (error) {
-    console.error('认证过程发生错误:', error)
-    return false
-  }
-  return false
-}
-
-// 检查存储的认证状态
-async function checkStoredAuth() {
-  const storedAuth = localStorage.getItem('isAuthenticated')
-  if (storedAuth === 'true') {
-    const {
-      data: { user },
-      error,
-    } = await supabaseClient.auth.getUser()
-    if (user && !error) {
-      isAuthenticated = true
-      document.body.classList.add('authenticated')
-      await loadNotes()
-    } else {
-      localStorage.removeItem('isAuthenticated')
-    }
+// 自动保存到localStorage
+function saveToLocalStorage() {
+  if (notes.length > 0) {
+    localStorage.setItem('notes', JSON.stringify(notes))
   }
 }
 
-// 退出登录
-async function logout() {
-  try {
-    await supabaseClient.auth.signOut()
-    isAuthenticated = false
-    localStorage.removeItem('isAuthenticated')
-    document.body.classList.remove('authenticated')
-    notes = []
-    currentNote = null
-    updateNotesList()
-    updateEditor()
-  } catch (error) {
-    console.error('退出登录失败:', error)
-  }
-}
-
-// ... (保持其他现有代码不变) ...
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', () => {
+  checkStoredAuth()
+  restoreSidebarState()
+  initializeUIState()
+  initializeTheme()
+  setupThemeListener()
+})
 
 // 导出函数
 export {
@@ -331,11 +331,3 @@ window.selectNote = selectNote
 window.deleteNote = deleteNote
 window.authenticate = authenticate
 window.logout = logout
-
-// 页面加载时初始化
-document.addEventListener('DOMContentLoaded', () => {
-  checkStoredAuth()
-  restoreSidebarState()
-  initializeTheme()
-  setupThemeListener()
-})
