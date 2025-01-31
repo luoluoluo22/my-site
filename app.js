@@ -63,6 +63,13 @@ function initializeUIState() {
     loadingElement.style.display = 'none'
   }
 
+  // 确保帮助面板初始化时是隐藏的
+  const helpPanel = document.getElementById('helpPanel')
+  if (helpPanel) {
+    helpPanel.classList.add('hidden')
+    helpPanel.style.visibility = 'hidden'  // 添加额外的隐藏保证
+  }
+
   // 根据认证状态显示相应面板
   const loginPanel = document.getElementById('loginPanel')
   const mainContent = document.getElementById('mainContent')
@@ -305,6 +312,13 @@ function saveToLocalStorage() {
 
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
+  // 确保帮助面板最先被隐藏
+  const helpPanel = document.getElementById('helpPanel')
+  if (helpPanel) {
+    helpPanel.classList.add('hidden')
+    helpPanel.style.visibility = 'hidden'  // 添加额外的隐藏保证
+  }
+
   checkStoredAuth()
   restoreSidebarState()
   initializeUIState()
