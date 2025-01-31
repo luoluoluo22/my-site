@@ -21,6 +21,9 @@
 需要先启动本地服务器：
 
 ```bash
+# 进入本地开发目录
+cd local
+
 # 安装依赖
 npm install
 
@@ -30,7 +33,16 @@ npm start
 
 ### 2. 使用浏览器原生 API（实验性）
 
-如果不想使用 Node.js 服务器，可以使用浏览器原生的 `window.chrome.webview` API。
+如果不想使用 Node.js 服务器，可以使用浏览器原生的 `window.chrome.webview` API：
+
+```powershell
+# 进入本地开发目录
+cd local
+
+# 运行 WebView2 主机
+.\host.ps1
+```
+
 这种方式需要将网页嵌入到 WebView2 环境中运行。
 
 ## PowerShell 命令格式
@@ -66,8 +78,12 @@ my-site/
 ├── app.js          # 主应用代码
 ├── style.css       # 样式文件
 ├── index.html      # 主页面
-├── server.js       # 命令执行服务器（可选）
-└── package.json    # 项目配置
+├── build.js        # 构建脚本
+├── package.json    # 项目配置
+└── local/          # 本地开发相关
+    ├── server.js   # WebSocket 服务器
+    ├── host.ps1    # WebView2 主机
+    └── package.json # 本地开发配置
 ```
 
 ### 环境变量

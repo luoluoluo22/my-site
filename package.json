@@ -4,10 +4,6 @@
   "description": "个人笔记管理系统",
   "main": "app.js",
   "scripts": {
-    "start": "node server.js",
     "build": "node build.js"
-  },
-  "dependencies": {
-    "ws": "^8.16.0"
   }
 }
