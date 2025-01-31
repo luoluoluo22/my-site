@@ -25,31 +25,32 @@ const EXECUTION_MODE = {
 
 let currentExecutionMode = null
 
-try {
-  if (!SUPABASE_ANON_KEY) {
-    throw new Error('Supabase key not found. Please check your environment variables.')
-  }
-  
-  console.log('初始化 Supabase:', {
-    url: SUPABASE_URL,
-    key: SUPABASE_ANON_KEY ? '已设置' : '未设置'
-  })
-  
-  supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  
-  // 测试连接
-  supabaseClient.from('notes').select('count').then(() => {
+// 初始化 Supabase
+async function initSupabase() {
+  try {
+    if (!SUPABASE_ANON_KEY) {
+      throw new Error('Supabase key not found. Please check your environment variables.')
+    }
+    
+    console.log('初始化 Supabase:', {
+      url: SUPABASE_URL,
+      key: SUPABASE_ANON_KEY ? '已设置' : '未设置',
+      env: window.ENV
+    })
+    
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    
+    // 测试连接
+    const { error } = await supabaseClient.from('notes').select('count')
+    if (error) throw error
+    
     console.log('Supabase 连接成功')
-  }).catch(error => {
-    console.error('Supabase 连接测试失败:', error)
-    showMessage('数据库连接测试失败: ' + error.message, 'error')
-  })
-} catch (error) {
-  console.error('Supabase 初始化失败:', error)
-  // 延迟显示错误消息，确保 DOM 已加载
-  setTimeout(() => {
+    return true
+  } catch (error) {
+    console.error('Supabase 初始化失败:', error)
     showMessage('数据库连接失败: ' + error.message, 'error')
-  }, 0)
+    return false
+  }
 }
 
 // 主题切换功能
@@ -153,7 +154,7 @@ async function logout() {
 
 // 加载笔记
 async function loadNotes() {
-  if (!isAuthenticated) return
+  if (!isAuthenticated || !supabaseClient) return
 
   try {
     const { data: notes_data, error } = await supabaseClient
@@ -163,13 +164,14 @@ async function loadNotes() {
 
     if (error) throw error
     
-    console.log('加载的笔记:', notes_data) // 添加调试日志
+    console.log('加载的笔记:', notes_data)
     notes = notes_data
     currentNote = notes[0] || null
     updateNotesList()
     updateEditor()
   } catch (error) {
     console.error('加载笔记失败:', error)
+    showMessage('加载笔记失败: ' + error.message, 'error')
   }
 }
 
@@ -639,7 +641,7 @@ function handleNoteClick(noteId) {
 }
 
 // 页面加载时初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // 确保帮助面板最先被隐藏
   const helpPanel = document.getElementById('helpPanel')
   if (helpPanel) {
@@ -647,12 +649,17 @@ document.addEventListener('DOMContentLoaded', () => {
     helpPanel.style.visibility = 'hidden'
   }
 
-  checkStoredAuth()
+  // 初始化 Supabase
+  const supabaseInitialized = await initSupabase()
+  if (supabaseInitialized) {
+    await checkStoredAuth()
+  }
+
   restoreSidebarState()
   initializeUIState()
   initializeTheme()
   setupThemeListener()
-  setupAutoSave()  // 添加自动保存
+  setupAutoSave()
   
   // 检测并初始化命令执行方式
   detectExecutionMode()
