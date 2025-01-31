@@ -76,12 +76,30 @@
 
     <!-- 主要内容区域 -->
     <div id="mainContent" class="app-container">
+      <!-- 侧边栏折叠按钮 -->
+      <button id="sidebarToggle" class="sidebar-toggle">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <path
+            fill="currentColor"
+            d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
+          />
+        </svg>
+      </button>
+
       <!-- 左侧笔记列表 -->
-      <div class="sidebar">
+      <div id="sidebar" class="sidebar">
         <div class="sidebar-header">
           <div class="header-top">
             <h2>笔记列表</h2>
             <button onclick="logout()" class="logout-btn">退出</button>
+          </div>
+          <div class="search-box">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="搜索笔记..."
+              class="search-input"
+            />
           </div>
           <button id="newNoteBtn" class="new-note-btn">新建笔记</button>
         </div>
@@ -145,6 +163,19 @@
       document
         .getElementById('noteContent')
         .addEventListener('input', NoteApp.updatePreview)
+      document
+        .getElementById('sidebarToggle')
+        .addEventListener('click', NoteApp.toggleSidebar)
+
+      // 搜索功能
+      const searchInput = document.getElementById('searchInput')
+      let searchTimeout
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout)
+        searchTimeout = setTimeout(() => {
+          NoteApp.searchNotes(searchInput.value)
+        }, 300)
+      })
 
       // 支持Enter键登录
       document.getElementById('password').addEventListener('keypress', (e) => {

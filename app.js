@@ -89,22 +89,21 @@ function setupEditorKeyBindings() {
   const editor = document.getElementById('noteContent')
 
   editor.addEventListener('keydown', (e) => {
-    // 如果按下了Ctrl键（Windows）或Command键（Mac）
     if (e.ctrlKey || e.metaKey) {
       const start = editor.selectionStart
       const end = editor.selectionEnd
       const selectedText = editor.value.substring(start, end)
 
       switch (e.key.toLowerCase()) {
-        case 'b': // 加粗
+        case 'b':
           e.preventDefault()
           insertMarkdown('**', '**', selectedText)
           break
-        case 'i': // 斜体
+        case 'i':
           e.preventDefault()
           insertMarkdown('*', '*', selectedText)
           break
-        case 'k': // 链接
+        case 'k':
           e.preventDefault()
           if (selectedText) {
             insertMarkdown('[', '](url)', selectedText)
@@ -112,25 +111,24 @@ function setupEditorKeyBindings() {
             insertMarkdown('[', '](url)', 'link text')
           }
           break
-        case 'h': // 高亮
+        case 'h':
           e.preventDefault()
           insertMarkdown('==', '==', selectedText)
           break
-        case 's': // 保存
+        case 's':
           e.preventDefault()
           saveNote()
           break
       }
     } else if (e.key === 'Tab') {
       e.preventDefault()
-      insertText('  ') // 插入两个空格
+      insertText('  ')
     }
   })
 
-  // 设置自动保存
   editor.addEventListener('input', () => {
     clearTimeout(autoSaveTimeout)
-    autoSaveTimeout = setTimeout(autoSave, 2000) // 2秒后自动保存
+    autoSaveTimeout = setTimeout(autoSave, 2000)
   })
 
   document.getElementById('noteTitle').addEventListener('input', () => {
@@ -181,7 +179,7 @@ async function autoSave() {
   const originalText = saveBtn.textContent
 
   try {
-    await saveNote(true) // true表示这是自动保存
+    await saveNote(true)
     saveBtn.textContent = '已自动保存'
     setTimeout(() => (saveBtn.textContent = originalText), 2000)
   } catch (error) {
@@ -189,6 +187,56 @@ async function autoSave() {
     saveBtn.textContent = '自动保存失败'
     setTimeout(() => (saveBtn.textContent = originalText), 2000)
   }
+}
+
+// 切换侧边栏
+function toggleSidebar() {
+  const container = document.querySelector('.app-container')
+  container.classList.toggle('sidebar-collapsed')
+
+  localStorage.setItem(
+    'sidebarCollapsed',
+    container.classList.contains('sidebar-collapsed')
+  )
+}
+
+// 恢复侧边栏状态
+function restoreSidebarState() {
+  const container = document.querySelector('.app-container')
+  const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'
+  if (isCollapsed) {
+    container.classList.add('sidebar-collapsed')
+  }
+}
+
+// 搜索笔记
+function searchNotes(query) {
+  if (!isAuthenticated) return
+
+  const noteItems = document.querySelectorAll('.note-item')
+  if (!query) {
+    noteItems.forEach((item) => {
+      item.classList.remove('search-hidden', 'search-match')
+    })
+    return
+  }
+
+  const searchRegex = new RegExp(query, 'i')
+
+  noteItems.forEach((item) => {
+    const title = item.querySelector('.note-title').textContent
+    const noteId = item.getAttribute('onclick').match(/\d+/)[0]
+    const note = notes.find((n) => n.id === parseInt(noteId))
+    const content = note ? note.content : ''
+
+    if (searchRegex.test(title) || searchRegex.test(content)) {
+      item.classList.remove('search-hidden')
+      item.classList.add('search-match')
+    } else {
+      item.classList.add('search-hidden')
+      item.classList.remove('search-match')
+    }
+  })
 }
 
 // 切换预览模式
@@ -356,6 +404,12 @@ function displayNotesList() {
       `
     )
     .join('')
+
+  // 恢复搜索结果
+  const searchInput = document.getElementById('searchInput')
+  if (searchInput.value) {
+    searchNotes(searchInput.value)
+  }
 }
 
 // 选择笔记
@@ -410,6 +464,8 @@ export {
   authenticate,
   logout,
   togglePreview,
+  toggleSidebar,
+  searchNotes,
 }
 
 // 将函数绑定到window对象
@@ -421,4 +477,5 @@ window.logout = logout
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
   checkStoredAuth()
+  restoreSidebarState()
 })
