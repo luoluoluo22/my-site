@@ -14,7 +14,23 @@
     </script>
   </head>
   <body>
-    <div class="app-container">
+    <!-- 登录面板 -->
+    <div id="loginPanel" class="login-panel">
+      <div class="login-box">
+        <h2>请输入访问密码</h2>
+        <div class="login-form">
+          <input type="password" id="password" placeholder="输入密码" />
+          <button
+            onclick="authenticate(document.getElementById('password').value)"
+          >
+            确认
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div id="mainContent" class="app-container">
       <!-- 左侧笔记列表 -->
       <div class="sidebar">
         <div class="sidebar-header">
@@ -50,6 +66,7 @@
         </div>
       </div>
     </div>
+
     <script type="module">
       import * as NoteApp from './app.js'
       document
@@ -61,6 +78,13 @@
       document
         .getElementById('noteContent')
         .addEventListener('input', NoteApp.updatePreview)
+
+      // 支持Enter键登录
+      document.getElementById('password').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          NoteApp.authenticate(e.target.value)
+        }
+      })
     </script>
   </body>
 </html>

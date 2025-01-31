@@ -8,6 +8,7 @@ const SUPABASE_ANON_KEY = supabaseConfig.SUPABASE_KEY || ''
 let supabaseClient
 let currentNote = null
 let notes = []
+let isAuthenticated = false
 
 try {
   supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -15,8 +16,35 @@ try {
   console.error('Supabase 初始化失败:', error)
 }
 
+// 身份验证
+async function authenticate(password) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('auth_settings')
+      .select('password')
+      .single()
+
+    if (error) throw error
+
+    if (data.password === password) {
+      isAuthenticated = true
+      document.getElementById('loginPanel').style.display = 'none'
+      document.getElementById('mainContent').style.display = 'flex'
+      await fetchNotes()
+      handleUrlRoute()
+    } else {
+      alert('密码错误')
+    }
+  } catch (error) {
+    console.error('Authentication error:', error)
+    alert('验证失败')
+  }
+}
+
 // 获取所有笔记
 async function fetchNotes() {
+  if (!isAuthenticated) return
+
   try {
     const { data, error } = await supabaseClient
       .from('notes')
@@ -32,19 +60,56 @@ async function fetchNotes() {
   }
 }
 
+// URL路由处理
+async function handleUrlRoute() {
+  if (!isAuthenticated) return
+
+  const path = window.location.pathname
+  const noteName = path.substring(1) // 移除开头的/
+
+  if (noteName) {
+    const existingNote = notes.find((note) => note.title === noteName)
+    if (existingNote) {
+      selectNote(existingNote.id)
+    } else {
+      await createNewNoteWithTitle(noteName)
+    }
+  }
+}
+
+// 使用指定标题创建新笔记
+async function createNewNoteWithTitle(title) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('notes')
+      .insert([{ title, content: '' }])
+      .select()
+
+    if (error) throw error
+    await fetchNotes()
+    if (data && data[0]) {
+      selectNote(data[0].id)
+    }
+  } catch (error) {
+    console.error('Error creating note:', error)
+    alert('创建笔记失败')
+  }
+}
+
 // 保存笔记
 async function saveNote() {
+  if (!isAuthenticated) return
+
   const title = document.getElementById('noteTitle').value
   const content = document.getElementById('noteContent').value
 
-  if (!title || !content) {
-    alert('请输入标题和内容')
+  if (!title) {
+    alert('请输入标题')
     return
   }
 
   try {
     if (currentNote) {
-      // 更新现有笔记
       const { data, error } = await supabaseClient
         .from('notes')
         .update({ title, content })
@@ -52,14 +117,19 @@ async function saveNote() {
         .select()
 
       if (error) throw error
+
+      // 更新URL
+      history.pushState({}, '', `/${title}`)
     } else {
-      // 创建新笔记
       const { data, error } = await supabaseClient
         .from('notes')
         .insert([{ title, content }])
         .select()
 
       if (error) throw error
+
+      // 更新URL
+      history.pushState({}, '', `/${title}`)
     }
 
     await fetchNotes()
@@ -71,6 +141,8 @@ async function saveNote() {
 
 // 删除笔记
 async function deleteNote(id) {
+  if (!isAuthenticated) return
+
   if (!confirm('确定要删除这条笔记吗？')) return
 
   try {
@@ -81,6 +153,7 @@ async function deleteNote(id) {
     if (currentNote && currentNote.id === id) {
       currentNote = null
       clearEditor()
+      history.pushState({}, '', '/')
     }
 
     await fetchNotes()
@@ -114,19 +187,27 @@ function displayNotesList() {
 
 // 选择笔记
 function selectNote(id) {
+  if (!isAuthenticated) return
+
   currentNote = notes.find((note) => note.id === id)
   if (!currentNote) return
 
   document.getElementById('noteTitle').value = currentNote.title
   document.getElementById('noteContent').value = currentNote.content
   updatePreview()
-  displayNotesList() // 更新选中状态
+  displayNotesList()
+
+  // 更新URL
+  history.pushState({}, '', `/${currentNote.title}`)
 }
 
 // 创建新笔记
 function createNewNote() {
+  if (!isAuthenticated) return
+
   currentNote = null
   clearEditor()
+  history.pushState({}, '', '/')
 }
 
 // 清空编辑器
@@ -144,34 +225,20 @@ function updatePreview() {
   preview.innerHTML = marked.parse(content)
 }
 
-// 自动保存功能
-let autoSaveTimer
-function setupAutoSave() {
-  const noteContent = document.getElementById('noteContent')
-  const noteTitle = document.getElementById('noteTitle')
-
-  function triggerAutoSave() {
-    clearTimeout(autoSaveTimer)
-    autoSaveTimer = setTimeout(() => {
-      if (noteTitle.value && noteContent.value) {
-        saveNote()
-      }
-    }, 2000) // 2秒后自动保存
-  }
-
-  noteContent.addEventListener('input', triggerAutoSave)
-  noteTitle.addEventListener('input', triggerAutoSave)
-}
+// 处理浏览器后退/前进按钮
+window.onpopstate = handleUrlRoute
 
 // 导出函数
-export { saveNote, deleteNote, createNewNote, updatePreview }
+export { saveNote, deleteNote, createNewNote, updatePreview, authenticate }
 
 // 将函数绑定到window对象
 window.selectNote = selectNote
 window.deleteNote = deleteNote
+window.authenticate = authenticate
 
-// 初始化
+// 页面加载时检查URL路由
 document.addEventListener('DOMContentLoaded', () => {
-  fetchNotes()
-  setupAutoSave()
+  // 首次加载时显示登录面板，隐藏主内容
+  document.getElementById('loginPanel').style.display = 'flex'
+  document.getElementById('mainContent').style.display = 'none'
 })
