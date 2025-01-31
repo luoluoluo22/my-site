@@ -14,6 +14,17 @@ let isAuthenticated = false
 let isPreviewMode = false
 let autoSaveTimeout = null
 
+// WebSocket 连接
+let ws = null
+
+// 命令执行方式
+const EXECUTION_MODE = {
+  WEBVIEW: 'webview',
+  WEBSOCKET: 'websocket'
+}
+
+let currentExecutionMode = null
+
 try {
   if (!SUPABASE_ANON_KEY) {
     throw new Error('Supabase key not found. Please check your environment variables.')
@@ -302,11 +313,199 @@ function updatePreview() {
   if (!previewElement || !editArea || !contentElement) return
 
   const content = contentElement.value || ''
-  previewElement.innerHTML = marked.parse(content)
+  
+  // 使用marked解析Markdown
+  const rendered = marked.parse(content)
+  previewElement.innerHTML = rendered
+
+  // 增强代码块
+  enhanceCodeBlocks(previewElement)
 
   // 切换预览/编辑区域的显示状态
   previewElement.classList.toggle('hidden', !isPreviewMode)
   editArea.classList.toggle('hidden', isPreviewMode)
+}
+
+// 初始化 WebSocket 连接
+function initWebSocket() {
+  ws = new WebSocket('ws://localhost:3000')
+  
+  ws.onopen = () => {
+    console.log('WebSocket 连接成功')
+    showMessage('命令执行服务已连接')
+  }
+  
+  ws.onclose = () => {
+    console.log('WebSocket 连接断开')
+    showMessage('命令执行服务已断开', 'error')
+    // 5秒后尝试重连
+    setTimeout(initWebSocket, 5000)
+  }
+  
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'command_result') {
+        handleCommandResult(data)
+      }
+    } catch (error) {
+      console.error('处理消息失败:', error)
+    }
+  }
+}
+
+// 检测可用的命令执行方式
+function detectExecutionMode() {
+  if (window.chrome?.webview) {
+    currentExecutionMode = EXECUTION_MODE.WEBVIEW
+    console.log('使用 WebView2 模式')
+    return
+  }
+
+  currentExecutionMode = EXECUTION_MODE.WEBSOCKET
+  console.log('使用 WebSocket 模式')
+  initWebSocket()
+}
+
+// 执行命令
+async function executeCommand(command) {
+  if (currentExecutionMode === EXECUTION_MODE.WEBVIEW) {
+    try {
+      // 使用 WebView2 执行命令
+      const result = await window.chrome.webview.hostObjects.powershell.executeCommand(command)
+      handleCommandResult({
+        type: 'command_result',
+        command,
+        success: true,
+        output: result
+      })
+    } catch (error) {
+      handleCommandResult({
+        type: 'command_result',
+        command,
+        success: false,
+        error: error.message
+      })
+    }
+  } else if (currentExecutionMode === EXECUTION_MODE.WEBSOCKET) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      showMessage('命令执行服务未连接', 'error')
+      return
+    }
+
+    try {
+      ws.send(JSON.stringify({
+        type: 'command',
+        command
+      }))
+    } catch (error) {
+      console.error('发送命令失败:', error)
+      showMessage('发送命令失败', 'error')
+    }
+  } else {
+    showMessage('未找到可用的命令执行方式', 'error')
+  }
+}
+
+// 处理命令执行结果
+function handleCommandResult(data) {
+  const { command, success, output, error } = data
+  
+  // 在预览区域显示结果
+  const resultHtml = `
+    <div class="command-result ${success ? 'success' : 'error'}">
+      <div class="command-header">
+        <span class="command-text">${command}</span>
+        <span class="command-status">${success ? '成功' : '失败'}</span>
+      </div>
+      <pre class="command-output">${output || error || '无输出'}</pre>
+    </div>
+  `
+  
+  const previewElement = document.getElementById('preview')
+  if (previewElement) {
+    previewElement.insertAdjacentHTML('beforeend', resultHtml)
+    previewElement.scrollTop = previewElement.scrollHeight
+  }
+}
+
+// 增强代码块功能
+function enhanceCodeBlocks(previewElement) {
+  const codeBlocks = previewElement.querySelectorAll('pre code')
+  let orderCount = 1
+
+  codeBlocks.forEach(codeBlock => {
+    const pre = codeBlock.parentElement
+    
+    // 创建工具栏
+    const toolbar = document.createElement('div')
+    toolbar.className = 'code-toolbar'
+    
+    // 创建复制按钮
+    const copyButton = document.createElement('button')
+    copyButton.className = 'copy-button'
+    copyButton.innerHTML = `
+      <svg viewBox="0 0 24 24">
+        <path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+      </svg>
+      复制
+    `
+
+    // 创建执行按钮（仅对 PowerShell 代码块）
+    const isPowerShell = codeBlock.className.includes('language-powershell')
+    if (isPowerShell) {
+      const executeButton = document.createElement('button')
+      executeButton.className = 'execute-button'
+      executeButton.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z"/>
+        </svg>
+        执行
+      `
+      executeButton.addEventListener('click', () => {
+        const command = codeBlock.textContent.trim()
+        executeCommand(command)
+      })
+      toolbar.appendChild(executeButton)
+    }
+    
+    // 添加复制功能
+    copyButton.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(codeBlock.textContent)
+        copyButton.classList.add('copy-success')
+        copyButton.textContent = '已复制!'
+        setTimeout(() => {
+          copyButton.classList.remove('copy-success')
+          copyButton.innerHTML = `
+            <svg viewBox="0 0 24 24">
+              <path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+            </svg>
+            复制
+          `
+        }, 2000)
+      } catch (err) {
+        console.error('复制失败:', err)
+        showMessage('复制失败', 'error')
+      }
+    })
+
+    toolbar.appendChild(copyButton)
+    pre.appendChild(toolbar)
+    
+    // 检测是否是PowerShell命令
+    if (isPowerShell) {
+      pre.setAttribute('data-type', 'powershell')
+      pre.setAttribute('data-order', orderCount++)
+      
+      // 检测是否需要管理员权限
+      const needsAdmin = codeBlock.textContent.includes('#requires admin') ||
+                        codeBlock.textContent.toLowerCase().includes('administrator')
+      if (needsAdmin) {
+        pre.setAttribute('data-admin', 'true')
+      }
+    }
+  })
 }
 
 // 切换侧边栏
@@ -440,6 +639,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeTheme()
   setupThemeListener()
   setupAutoSave()  // 添加自动保存
+  
+  // 检测并初始化命令执行方式
+  detectExecutionMode()
 })
 
 // 导出函数

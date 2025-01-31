@@ -485,6 +485,8 @@ textarea:focus {
     padding: 1rem;
     border-radius: 4px;
     overflow-x: auto;
+    position: relative;
+    margin: 1rem 0;
 }
 
 .preview-panel blockquote {
@@ -610,4 +612,196 @@ textarea:focus {
 .note-item.selected {
     background-color: var(--bg-tertiary);
     border-left: 3px solid var(--accent-color);
+}
+
+/* 代码块工具栏 */
+.code-toolbar {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.preview-panel pre:hover .code-toolbar {
+    opacity: 1;
+}
+
+/* 代码块复制按钮 */
+.copy-button {
+    padding: 4px 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.copy-button:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.copy-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* PowerShell命令标记 */
+.preview-panel pre[data-type="powershell"] {
+    border-left: 3px solid #1a6fb4;
+}
+
+.preview-panel pre[data-type="powershell"]::before {
+    content: "PowerShell";
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 2px 8px;
+    background: #1a6fb4;
+    color: white;
+    font-size: 12px;
+    border-radius: 0 0 4px 0;
+}
+
+/* 管理员权限标记 */
+.preview-panel pre[data-admin="true"]::after {
+    content: "需要管理员权限";
+    position: absolute;
+    top: 0;
+    left: 80px;
+    padding: 2px 8px;
+    background: #d63031;
+    color: white;
+    font-size: 12px;
+    border-radius: 0 0 4px 4px;
+}
+
+/* 命令序号 */
+.preview-panel pre[data-order]::before {
+    content: attr(data-order);
+    position: absolute;
+    left: -30px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    background: var(--bg-tertiary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* 复制成功动画 */
+@keyframes copy-success {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.copy-success {
+    animation: copy-success 0.3s ease;
+    background: var(--accent-color) !important;
+    color: white !important;
+}
+
+/* 执行按钮 */
+.execute-button {
+    padding: 4px 8px;
+    background: var(--accent-color);
+    border: 1px solid var(--accent-hover);
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.execute-button:hover {
+    background: var(--accent-hover);
+}
+
+.execute-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* 命令执行结果 */
+.command-result {
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.command-result.success {
+    border-left: 3px solid var(--accent-color);
+}
+
+.command-result.error {
+    border-left: 3px solid var(--danger-color);
+}
+
+.command-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.command-text {
+    font-family: monospace;
+    color: var(--text-primary);
+}
+
+.command-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.success .command-status {
+    background: var(--accent-color);
+    color: white;
+}
+
+.error .command-status {
+    background: var(--danger-color);
+    color: white;
+}
+
+.command-output {
+    padding: 1rem;
+    margin: 0;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
 }
