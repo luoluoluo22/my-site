@@ -1,15 +1,9 @@
 [build]
   publish = "."
-  command = """
-    echo "开始构建..."
-    echo "SUPABASE_KEY: ${VITE_SUPABASE_KEY:-未设置}"
-    node build.js
-  """
+  command = "node build.js"
 
 [build.environment]
   NODE_VERSION = "18"
-  VITE_SUPABASE_KEY = ""
-  VITE_SUPABASE_URL = "https://gptacdyjxmjzlmgwjmms.supabase.co"
 
 [[redirects]]
   from = "/*"
