@@ -165,6 +165,10 @@
       </div>
     </div>
 
+    <div id="downloadBtn" class="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow cursor-pointer" onclick="downloadLocal()">
+      下载本地版本
+    </div>
+
     <script type="module">
       import * as NoteApp from './app.js'
       document
@@ -203,5 +207,46 @@
         }
       })
     </script>
+
+    <script>
+    async function downloadLocal() {
+      try {
+        const files = [
+          'local/server.js',
+          'local/host.ps1',
+          'local/autostart.ps1',
+          'local/install.ps1',
+          'local/package.json'
+        ];
+        
+        // 创建 ZIP 文件
+        const zip = new JSZip();
+        
+        for (const file of files) {
+          const response = await fetch(file);
+          const content = await response.text();
+          zip.file(file, content);
+        }
+        
+        // 下载 ZIP 文件
+        const blob = await zip.generateAsync({type: 'blob'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'my-note-local.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('下载完成！请解压后运行 install.ps1 进行安装。');
+      } catch (error) {
+        console.error('下载失败:', error);
+        alert('下载失败，请稍后重试。');
+      }
+    }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   </body>
 </html>
