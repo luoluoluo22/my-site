@@ -16,8 +16,16 @@ try {
   console.error('Supabase 初始化失败:', error)
 }
 
+// 检查存储的身份验证状态
+function checkStoredAuth() {
+  const storedPassword = localStorage.getItem('noteAppPassword')
+  if (storedPassword) {
+    authenticate(storedPassword, false) // false表示不需要再次存储密码
+  }
+}
+
 // 身份验证
-async function authenticate(password) {
+async function authenticate(password, shouldStore = true) {
   try {
     const { data, error } = await supabaseClient
       .from('auth_settings')
@@ -28,6 +36,9 @@ async function authenticate(password) {
 
     if (data.password === password) {
       isAuthenticated = true
+      if (shouldStore) {
+        localStorage.setItem('noteAppPassword', password)
+      }
       document.getElementById('loginPanel').style.display = 'none'
       document.getElementById('mainContent').style.display = 'flex'
       await fetchNotes()
@@ -39,6 +50,16 @@ async function authenticate(password) {
     console.error('Authentication error:', error)
     alert('验证失败')
   }
+}
+
+// 退出登录
+function logout() {
+  isAuthenticated = false
+  localStorage.removeItem('noteAppPassword')
+  document.getElementById('loginPanel').style.display = 'flex'
+  document.getElementById('mainContent').style.display = 'none'
+  currentNote = null
+  notes = []
 }
 
 // 获取所有笔记
@@ -229,16 +250,23 @@ function updatePreview() {
 window.onpopstate = handleUrlRoute
 
 // 导出函数
-export { saveNote, deleteNote, createNewNote, updatePreview, authenticate }
+export {
+  saveNote,
+  deleteNote,
+  createNewNote,
+  updatePreview,
+  authenticate,
+  logout,
+}
 
 // 将函数绑定到window对象
 window.selectNote = selectNote
 window.deleteNote = deleteNote
 window.authenticate = authenticate
+window.logout = logout
 
 // 页面加载时检查URL路由
 document.addEventListener('DOMContentLoaded', () => {
-  // 首次加载时显示登录面板，隐藏主内容
-  document.getElementById('loginPanel').style.display = 'flex'
-  document.getElementById('mainContent').style.display = 'none'
+  // 检查是否有存储的密码
+  checkStoredAuth()
 })

@@ -18,6 +18,7 @@
     <div id="loginPanel" class="login-panel">
       <div class="login-box">
         <h2>请输入访问密码</h2>
+        <p class="login-tip">登录后将自动保存到当前浏览器</p>
         <div class="login-form">
           <input type="password" id="password" placeholder="输入密码" />
           <button
@@ -34,7 +35,10 @@
       <!-- 左侧笔记列表 -->
       <div class="sidebar">
         <div class="sidebar-header">
-          <h2>笔记列表</h2>
+          <div class="header-top">
+            <h2>笔记列表</h2>
+            <button onclick="logout()" class="logout-btn">退出</button>
+          </div>
           <button id="newNoteBtn" class="new-note-btn">新建笔记</button>
         </div>
         <div id="notesList" class="notes-list">
