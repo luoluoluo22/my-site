@@ -9,6 +9,7 @@ let supabaseClient
 let currentNote = null
 let notes = []
 let isAuthenticated = false
+let isPreviewMode = false
 
 try {
   supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -17,11 +18,27 @@ try {
 }
 
 // 检查存储的身份验证状态
-function checkStoredAuth() {
+async function checkStoredAuth() {
   const storedPassword = localStorage.getItem('noteAppPassword')
   if (storedPassword) {
-    authenticate(storedPassword, false) // false表示不需要再次存储密码
+    await authenticate(storedPassword, false) // false表示不需要再次存储密码
+  } else {
+    showLoginPanel()
   }
+  // 移除加载状态
+  document.getElementById('loading').style.display = 'none'
+}
+
+// 显示登录面板
+function showLoginPanel() {
+  document.getElementById('loginPanel').style.visibility = 'visible'
+  document.getElementById('mainContent').style.visibility = 'hidden'
+}
+
+// 显示主内容
+function showMainContent() {
+  document.getElementById('loginPanel').style.visibility = 'hidden'
+  document.getElementById('mainContent').style.visibility = 'visible'
 }
 
 // 身份验证
@@ -39,16 +56,21 @@ async function authenticate(password, shouldStore = true) {
       if (shouldStore) {
         localStorage.setItem('noteAppPassword', password)
       }
-      document.getElementById('loginPanel').style.display = 'none'
-      document.getElementById('mainContent').style.display = 'flex'
+      showMainContent()
       await fetchNotes()
       handleUrlRoute()
     } else {
-      alert('密码错误')
+      showLoginPanel()
+      if (shouldStore) {
+        alert('密码错误')
+      }
     }
   } catch (error) {
     console.error('Authentication error:', error)
-    alert('验证失败')
+    showLoginPanel()
+    if (shouldStore) {
+      alert('验证失败')
+    }
   }
 }
 
@@ -56,10 +78,29 @@ async function authenticate(password, shouldStore = true) {
 function logout() {
   isAuthenticated = false
   localStorage.removeItem('noteAppPassword')
-  document.getElementById('loginPanel').style.display = 'flex'
-  document.getElementById('mainContent').style.display = 'none'
+  showLoginPanel()
   currentNote = null
   notes = []
+}
+
+// 切换预览模式
+function togglePreview() {
+  const editArea = document.getElementById('editArea')
+  const preview = document.getElementById('preview')
+  const previewBtn = document.getElementById('previewToggle')
+
+  isPreviewMode = !isPreviewMode
+
+  if (isPreviewMode) {
+    editArea.classList.add('hidden')
+    preview.classList.remove('hidden')
+    previewBtn.classList.add('active')
+    updatePreview()
+  } else {
+    editArea.classList.remove('hidden')
+    preview.classList.add('hidden')
+    previewBtn.classList.remove('active')
+  }
 }
 
 // 获取所有笔记
@@ -241,6 +282,7 @@ function clearEditor() {
 
 // 更新Markdown预览
 function updatePreview() {
+  if (!isPreviewMode) return
   const content = document.getElementById('noteContent').value
   const preview = document.getElementById('preview')
   preview.innerHTML = marked.parse(content)
@@ -257,6 +299,7 @@ export {
   updatePreview,
   authenticate,
   logout,
+  togglePreview,
 }
 
 // 将函数绑定到window对象

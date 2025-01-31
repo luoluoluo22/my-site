@@ -5,6 +5,25 @@
     <link rel="stylesheet" href="style.css" />
     <!-- marked.js用于Markdown解析 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+      /* 初始隐藏所有面板 */
+      #loginPanel,
+      #mainContent {
+        visibility: hidden;
+      }
+      .app-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+      }
+    </style>
     <!-- 环境变量配置 -->
     <script>
       window.ENV = {
@@ -14,6 +33,9 @@
     </script>
   </head>
   <body>
+    <!-- 加载动画 -->
+    <div id="loading" class="app-loading">加载中...</div>
+
     <!-- 登录面板 -->
     <div id="loginPanel" class="login-panel">
       <div class="login-box">
@@ -56,14 +78,19 @@
               placeholder="笔记标题"
               class="title-input"
             />
-            <button id="saveButton" class="save-btn">保存</button>
+            <div class="toolbar-buttons">
+              <button id="previewToggle" class="preview-btn">预览</button>
+              <button id="saveButton" class="save-btn">保存</button>
+            </div>
           </div>
           <div class="editor-container">
-            <textarea
-              id="noteContent"
-              placeholder="在此输入笔记内容... (支持Markdown语法)"
-            ></textarea>
-            <div id="preview" class="preview-panel">
+            <div id="editArea" class="edit-area">
+              <textarea
+                id="noteContent"
+                placeholder="在此输入笔记内容... (支持Markdown语法)"
+              ></textarea>
+            </div>
+            <div id="preview" class="preview-panel hidden">
               <!-- Markdown预览将在这里显示 -->
             </div>
           </div>
@@ -79,6 +106,9 @@
       document
         .getElementById('newNoteBtn')
         .addEventListener('click', NoteApp.createNewNote)
+      document
+        .getElementById('previewToggle')
+        .addEventListener('click', NoteApp.togglePreview)
       document
         .getElementById('noteContent')
         .addEventListener('input', NoteApp.updatePreview)
