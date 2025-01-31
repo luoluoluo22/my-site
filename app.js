@@ -4,9 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 const SITE_PASSWORD = '123456' // 网站访问密码
 
 // 初始化Supabase客户端
-const supabaseConfig = window.ENV || {}
 const SUPABASE_URL = 'https://gptacdyjxmjzlmgwjmms.supabase.co'
-const SUPABASE_ANON_KEY = supabaseConfig.SUPABASE_KEY || ''
+const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_KEY || ''
 
 let supabaseClient
 let currentNote = null
@@ -16,9 +15,16 @@ let isPreviewMode = false
 let autoSaveTimeout = null
 
 try {
+  if (!SUPABASE_ANON_KEY) {
+    throw new Error('Supabase key not found. Please check your environment variables.')
+  }
   supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 } catch (error) {
   console.error('Supabase 初始化失败:', error)
+  // 延迟显示错误消息，确保 DOM 已加载
+  setTimeout(() => {
+    showMessage('数据库连接失败: ' + error.message, 'error')
+  }, 0)
 }
 
 // 主题切换功能
@@ -120,30 +126,47 @@ async function logout() {
   updateEditor()
 }
 
-// 创建新笔记
-async function createNewNote() {
+// 加载笔记
+async function loadNotes() {
   if (!isAuthenticated) return
 
   try {
-    const newNote = {
-      id: Date.now().toString(),
-      title: '新笔记',
-      content: '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
+    const { data: notes_data, error } = await supabaseClient
+      .from('notes')
+      .select('*')
+      .order('updated_at', { ascending: false })
 
-    notes.unshift(newNote)
-    currentNote = newNote
+    if (error) throw error
+    
+    notes = notes_data
+    currentNote = notes[0] || null
     updateNotesList()
     updateEditor()
   } catch (error) {
-    console.error('创建笔记失败:', error)
+    console.error('加载笔记失败:', error)
+  }
+}
+
+// 自动保存功能
+function setupAutoSave() {
+  const contentElement = document.getElementById('noteContent')
+  const titleElement = document.getElementById('noteTitle')
+
+  if (contentElement && titleElement) {
+    contentElement.addEventListener('input', () => {
+      if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
+      autoSaveTimeout = setTimeout(() => saveNote(true), 2000)
+    })
+
+    titleElement.addEventListener('input', () => {
+      if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
+      autoSaveTimeout = setTimeout(() => saveNote(true), 2000)
+    })
   }
 }
 
 // 保存笔记
-async function saveNote() {
+async function saveNote(isAutoSave = false) {
   if (!isAuthenticated || !currentNote) return
 
   try {
@@ -152,19 +175,88 @@ async function saveNote() {
 
     const title = titleElement.value.trim()
     const content = contentElement.value.trim()
+    const now = new Date().toISOString()
 
-    const noteIndex = notes.findIndex((note) => note.id === currentNote.id)
-    if (noteIndex > -1) {
-      notes[noteIndex] = {
-        ...notes[noteIndex],
-        title,
-        content,
-        updated_at: new Date().toISOString(),
+    let noteData = {
+      title,
+      content,
+      updated_at: now
+    }
+
+    if (currentNote.id) {
+      // 更新现有笔记
+      const { error } = await supabaseClient
+        .from('notes')
+        .update(noteData)
+        .eq('id', currentNote.id)
+
+      if (error) throw error
+    } else {
+      // 创建新笔记
+      noteData.created_at = now
+      const { data, error } = await supabaseClient
+        .from('notes')
+        .insert([noteData])
+        .select()
+
+      if (error) throw error
+      if (data && data[0]) {
+        currentNote = data[0]
       }
-      updateNotesList()
+    }
+
+    // 重新加载笔记列表
+    await loadNotes()
+    
+    // 显示保存成功提示（非自动保存时）
+    if (!isAutoSave) {
+      showMessage('笔记已保存')
     }
   } catch (error) {
     console.error('保存笔记失败:', error)
+    showMessage('保存失败: ' + error.message, 'error')
+  }
+}
+
+// 显示消息提示
+function showMessage(message, type = 'success') {
+  const messageElement = document.createElement('div')
+  messageElement.className = `message ${type}`
+  messageElement.textContent = message
+  document.body.appendChild(messageElement)
+
+  // 2秒后自动消失
+  setTimeout(() => {
+    messageElement.classList.add('fade-out')
+    setTimeout(() => messageElement.remove(), 300)
+  }, 2000)
+}
+
+// 创建新笔记
+async function createNewNote() {
+  if (!isAuthenticated) return
+
+  try {
+    const now = new Date().toISOString()
+    const newNote = {
+      title: '新笔记',
+      content: '',
+      created_at: now,
+      updated_at: now
+    }
+
+    const { data, error } = await supabaseClient
+      .from('notes')
+      .insert([newNote])
+      .select()
+
+    if (error) throw error
+    if (data && data[0]) {
+      currentNote = data[0]
+      await loadNotes()
+    }
+  } catch (error) {
+    console.error('创建笔记失败:', error)
   }
 }
 
@@ -173,10 +265,14 @@ async function deleteNote(noteId) {
   if (!isAuthenticated) return
 
   try {
-    notes = notes.filter((note) => note.id !== noteId)
-    currentNote = notes[0] || null
-    updateNotesList()
-    updateEditor()
+    const { error } = await supabaseClient
+      .from('notes')
+      .delete()
+      .eq('id', noteId)
+
+    if (error) throw error
+
+    await loadNotes()
   } catch (error) {
     console.error('删除笔记失败:', error)
   }
@@ -247,7 +343,7 @@ function updateNotesList(filteredNotes = null) {
     .map(
       (note) => `
       <div class="note-item ${note.id === currentNote?.id ? 'selected' : ''}" 
-           onclick="selectNote('${note.id}')">
+           data-note-id="${note.id}">
         <div class="note-title">${note.title || '无标题'}</div>
         <div class="note-date">${new Date(
           note.updated_at
@@ -256,6 +352,15 @@ function updateNotesList(filteredNotes = null) {
     `
     )
     .join('')
+
+  // 添加点击事件监听
+  const noteItems = notesListElement.querySelectorAll('.note-item')
+  noteItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const noteId = item.dataset.noteId
+      selectNote(noteId)
+    })
+  })
 }
 
 // 更新编辑器
@@ -277,22 +382,6 @@ function updateEditor() {
   }
 }
 
-// 加载笔记
-async function loadNotes() {
-  if (!isAuthenticated) return
-
-  try {
-    // 这里可以添加从localStorage加载笔记的逻辑
-    const storedNotes = localStorage.getItem('notes')
-    notes = storedNotes ? JSON.parse(storedNotes) : []
-    currentNote = notes[0] || null
-    updateNotesList()
-    updateEditor()
-  } catch (error) {
-    console.error('加载笔记失败:', error)
-  }
-}
-
 // 选择笔记
 function selectNote(noteId) {
   const note = notes.find((n) => n.id === noteId)
@@ -303,20 +392,13 @@ function selectNote(noteId) {
   }
 }
 
-// 自动保存到localStorage
-function saveToLocalStorage() {
-  if (notes.length > 0) {
-    localStorage.setItem('notes', JSON.stringify(notes))
-  }
-}
-
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
   // 确保帮助面板最先被隐藏
   const helpPanel = document.getElementById('helpPanel')
   if (helpPanel) {
     helpPanel.classList.add('hidden')
-    helpPanel.style.visibility = 'hidden'  // 添加额外的隐藏保证
+    helpPanel.style.visibility = 'hidden'
   }
 
   checkStoredAuth()
@@ -324,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeUIState()
   initializeTheme()
   setupThemeListener()
+  setupAutoSave()  // 添加自动保存
 })
 
 // 导出函数
@@ -340,8 +423,7 @@ export {
   toggleTheme,
 }
 
-// 将函数绑定到window对象
-window.selectNote = selectNote
+// 不再需要将 selectNote 绑定到 window 对象，因为我们使用了事件监听
 window.deleteNote = deleteNote
 window.authenticate = authenticate
 window.logout = logout
