@@ -1,20 +1,20 @@
-import { readFileSync, writeFileSync } from 'fs'
-import { resolve } from 'path'
-import { fileURLToPath } from 'url'
+const fs = require('fs')
+const path = require('path')
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const indexPath = resolve(__dirname, 'index.html')
-
-// 获取环境变量（优先使用process.env）
+// 读取环境变量
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY || ''
 
-let indexContent = readFileSync(indexPath, 'utf8')
+// 读取 index.html
+const indexPath = path.join(__dirname, 'index.html')
+let content = fs.readFileSync(indexPath, 'utf8')
 
-// 替换环境变量
-indexContent = indexContent.replace(
-  "SUPABASE_KEY: '<%=process.env.VITE_SUPABASE_KEY%>'",
+// 替换 Supabase key
+content = content.replace(
+  /SUPABASE_KEY: '.*?'/,
   `SUPABASE_KEY: '${SUPABASE_KEY}'`
 )
 
 // 写回文件
-writeFileSync(indexPath, indexContent)
+fs.writeFileSync(indexPath, content)
+
+console.log('构建完成！')

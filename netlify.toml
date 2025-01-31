@@ -1,10 +1,10 @@
 [build]
   publish = "."
-  command = "npm run build"
+  command = "node build.js"
 
 [build.environment]
+  VITE_SUPABASE_KEY = ""
   VITE_SUPABASE_URL = "https://gptacdyjxmjzlmgwjmms.supabase.co"
-  # VITE_SUPABASE_KEY在Netlify的环境变量设置中配置
 
 [[redirects]]
   from = "/*"
