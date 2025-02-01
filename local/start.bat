@@ -14,7 +14,23 @@ if %errorlevel% neq 0 (
 echo 正在设置开机自启动...
 set "startup_dir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "shortcut_path=%startup_dir%\CommandServer.lnk"
-powershell -NoProfile -Command "$WS = New-Object -ComObject WScript.Shell; $shortcut = $WS.CreateShortcut('%shortcut_path%'); $shortcut.TargetPath = '%~dp0start.bat'; $shortcut.WorkingDirectory = '%~dp0'; $shortcut.WindowStyle = 7; $shortcut.Save()"
+
+:: 检查快捷方式是否已存在
+if exist "%shortcut_path%" (
+    echo 开机自启动已设置
+) else (
+    echo 正在创建开机自启动快捷方式...
+    powershell -NoProfile -Command "$WS = New-Object -ComObject WScript.Shell; $shortcut = $WS.CreateShortcut('%shortcut_path%'); $shortcut.TargetPath = '%~dp0start.bat'; $shortcut.WorkingDirectory = '%~dp0'; $shortcut.WindowStyle = 7; $shortcut.Save()"
+    
+    :: 验证快捷方式是否创建成功
+    if exist "%shortcut_path%" (
+        echo 开机自启动设置成功
+    ) else (
+        echo 开机自启动设置失败，请检查权限
+        pause
+        exit /b 1
+    )
+)
 
 echo 正在检查Node.js环境...
 
