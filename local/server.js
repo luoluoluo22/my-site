@@ -26,9 +26,16 @@ function executePowerShell(command) {
     const escapedCommand = command.replace(/"/g, '`"')
     const cmd = `powershell.exe -NoProfile -NonInteractive -Command "& { ${escapedCommand} }"`
     
+    console.log('[命令执行] 执行命令:', command)
+    
     exec(cmd, { encoding: 'buffer' }, (error, stdout, stderr) => {
       const output = iconv.decode(stdout, 'cp936')
       const errorOutput = iconv.decode(stderr, 'cp936')
+      
+      console.log('[命令执行] 命令输出:', output || errorOutput)
+      if (error) {
+        console.error('[命令执行] 执行错误:', error)
+      }
       
       resolve({
         success: !error,
@@ -53,16 +60,17 @@ const discoveryServer = new WebSocket.Server({
 console.log('服务发现服务已启动在端口 3001')
 
 // 处理命令执行
-commandServer.on('connection', (ws) => {
-  console.log('新的命令执行客户端连接')
+commandServer.on('connection', (ws, req) => {
+  console.log('[WebSocket] 新的命令执行连接:', req.socket.remoteAddress)
   
   ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message)
-      console.log('收到命令:', data)
+      console.log('[WebSocket] 收到命令:', data.command)
       
       if (data.type === 'command') {
         const result = await executePowerShell(data.command)
+        console.log('[WebSocket] 发送命令结果:', result.success ? '成功' : '失败')
         ws.send(JSON.stringify({
           type: 'command_result',
           command: data.command,
@@ -70,7 +78,7 @@ commandServer.on('connection', (ws) => {
         }))
       }
     } catch (error) {
-      console.error('处理命令失败:', error)
+      console.error('[WebSocket] 处理命令失败:', error)
       ws.send(JSON.stringify({
         type: 'command_result',
         success: false,
@@ -79,23 +87,27 @@ commandServer.on('connection', (ws) => {
     }
   })
   
+  ws.on('close', () => {
+    console.log('[WebSocket] 命令执行连接已关闭:', req.socket.remoteAddress)
+  })
+  
   ws.on('error', (error) => {
-    console.error('WebSocket错误:', error)
+    console.error('[WebSocket] 连接错误:', error)
   })
 })
 
 // 处理服务发现
-discoveryServer.on('connection', (ws) => {
-  console.log('新的服务发现客户端连接')
+discoveryServer.on('connection', (ws, req) => {
+  console.log('[发现服务] 新的服务发现连接:', req.socket.remoteAddress)
   
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message)
-      console.log('收到发现请求:', data)
+      console.log('[发现服务] 收到发现请求:', data)
       
       if (data.type === 'DISCOVER_NOTE_SERVICE') {
         const addresses = getLocalIPs()
-        console.log('发送服务信息:', addresses)
+        console.log('[发现服务] 发送服务信息:', addresses)
         
         ws.send(JSON.stringify({
           type: 'NOTE_SERVICE_INFO',
@@ -104,24 +116,29 @@ discoveryServer.on('connection', (ws) => {
         }))
       }
     } catch (error) {
-      console.error('处理发现请求失败:', error)
+      console.error('[发现服务] 处理发现请求失败:', error)
     }
   })
   
+  ws.on('close', () => {
+    console.log('[发现服务] 服务发现连接已关闭:', req.socket.remoteAddress)
+  })
+  
   ws.on('error', (error) => {
-    console.error('WebSocket错误:', error)
+    console.error('[发现服务] 连接错误:', error)
   })
 })
 
 // 错误处理
 commandServer.on('error', (error) => {
-  console.error('命令服务器错误:', error)
+  console.error('[服务器] 命令服务器错误:', error)
 })
 
 discoveryServer.on('error', (error) => {
-  console.error('发现服务器错误:', error)
+  console.error('[服务器] 发现服务器错误:', error)
 })
 
 // 显示服务器信息
-console.log('本机IP地址:', getLocalIPs())
-console.log('服务器已启动，等待连接...') 
+const addresses = getLocalIPs()
+console.log('[服务器] 本机IP地址:', addresses)
+console.log('[服务器] 服务器已启动，等待连接...') 
