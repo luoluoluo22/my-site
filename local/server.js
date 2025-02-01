@@ -1,55 +1,78 @@
 const WebSocket = require('ws')
 const { exec } = require('child_process')
-const http = require('http')
+const os = require('os')
+const dgram = require('dgram')
 
-// 创建 HTTP 服务器
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' })
-  res.end('WebSocket server is running')
+// 获取本机IP地址
+function getLocalIPs() {
+  const interfaces = os.networkInterfaces()
+  const addresses = []
+  
+  for (const name of Object.keys(interfaces)) {
+    for (const interface of interfaces[name]) {
+      // 跳过内部IP和非IPv4地址
+      if (interface.internal || interface.family !== 'IPv4') continue
+      addresses.push(interface.address)
+    }
+  }
+  
+  return addresses
+}
+
+// 创建UDP服务用于服务发现
+const discoverySocket = dgram.createSocket('udp4')
+
+discoverySocket.on('message', (msg, rinfo) => {
+  try {
+    const data = JSON.parse(msg.toString())
+    if (data.type === 'DISCOVER_NOTE_SERVICE') {
+      // 响应服务发现请求
+      const response = JSON.stringify({
+        type: 'NOTE_SERVICE_INFO',
+        port: 3000,
+        addresses: getLocalIPs()
+      })
+      discoverySocket.send(response, rinfo.port, rinfo.address)
+    }
+  } catch (error) {
+    console.error('处理发现请求失败:', error)
+  }
 })
 
-// 创建 WebSocket 服务器
-const wss = new WebSocket.Server({ server })
+discoverySocket.bind(3001, () => {
+  discoverySocket.setBroadcast(true)
+  console.log('服务发现已启动在端口 3001')
+})
 
-// 处理 WebSocket 连接
+// WebSocket服务器
+const wss = new WebSocket.Server({ port: 3000 })
+
 wss.on('connection', (ws) => {
   console.log('新的客户端连接')
-
-  // 处理消息
+  
   ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message)
       
       if (data.type === 'command') {
-        // 执行命令
-        exec(data.command, { shell: 'powershell.exe' }, (error, stdout, stderr) => {
-          const response = {
+        exec(data.command, (error, stdout, stderr) => {
+          ws.send(JSON.stringify({
             type: 'command_result',
             command: data.command,
             success: !error,
-            output: stdout || stderr,
-            error: error ? error.message : null
-          }
-          
-          ws.send(JSON.stringify(response))
+            output: error ? stderr : stdout
+          }))
         })
       }
     } catch (error) {
+      console.error('处理消息失败:', error)
       ws.send(JSON.stringify({
-        type: 'error',
-        message: error.message
+        type: 'command_result',
+        success: false,
+        error: error.message
       }))
     }
   })
-
-  // 处理关闭连接
-  ws.on('close', () => {
-    console.log('客户端断开连接')
-  })
 })
 
-// 启动服务器
-const PORT = 3000
-server.listen(PORT, () => {
-  console.log(`WebSocket 服务器运行在 ws://localhost:${PORT}`)
-}) 
+console.log('WebSocket服务器已启动在端口 3000') 

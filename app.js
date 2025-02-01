@@ -14,9 +14,6 @@ let isAuthenticated = false
 let isPreviewMode = false
 let autoSaveTimeout = null
 
-// WebSocket 连接
-let ws = null
-
 // 命令执行方式
 const EXECUTION_MODE = {
   WEBVIEW: 'webview',
@@ -24,6 +21,165 @@ const EXECUTION_MODE = {
 }
 
 let currentExecutionMode = null
+
+// 服务发现和连接管理
+const CommandService = {
+  // 可用的服务端点
+  endpoints: [
+    'ws://localhost:3000',           // 本地服务
+    'ws://192.168.1.100:3000',      // 示例：局域网中的其他设备
+    'ws://192.168.1.101:3000'
+  ],
+  
+  // 当前连接
+  currentWs: null,
+  
+  // 最后成功连接的端点
+  lastSuccessfulEndpoint: null,
+  
+  // 获取本地IP地址
+  async getLocalIPs() {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json')
+      const data = await response.json()
+      return [data.ip]
+    } catch (error) {
+      console.error('获取IP地址失败:', error)
+      return []
+    }
+  },
+  
+  // 更新可用端点列表
+  async updateEndpoints() {
+    // 从localStorage获取保存的端点
+    const savedEndpoints = JSON.parse(localStorage.getItem('wsEndpoints') || '[]')
+    
+    // 获取本地IP
+    const localIPs = await this.getLocalIPs()
+    
+    // 合并端点列表
+    this.endpoints = [
+      'ws://localhost:3000',
+      ...localIPs.map(ip => `ws://${ip}:3000`),
+      ...savedEndpoints
+    ]
+    
+    // 去重
+    this.endpoints = [...new Set(this.endpoints)]
+  },
+  
+  // 测试端点连接
+  async testEndpoint(endpoint, timeout = 2000) {
+    return new Promise((resolve) => {
+      try {
+        const ws = new WebSocket(endpoint)
+        const timer = setTimeout(() => {
+          ws.close()
+          resolve(false)
+        }, timeout)
+        
+        ws.onopen = () => {
+          clearTimeout(timer)
+          ws.close()
+          resolve(true)
+        }
+        
+        ws.onerror = () => {
+          clearTimeout(timer)
+          resolve(false)
+        }
+      } catch {
+        resolve(false)
+      }
+    })
+  },
+  
+  // 连接到最佳端点
+  async connectToBestEndpoint() {
+    await this.updateEndpoints()
+    
+    // 首先尝试上次成功的端点
+    if (this.lastSuccessfulEndpoint) {
+      const isAvailable = await this.testEndpoint(this.lastSuccessfulEndpoint)
+      if (isAvailable) {
+        return this.connect(this.lastSuccessfulEndpoint)
+      }
+    }
+    
+    // 然后尝试本地端点
+    const isLocalAvailable = await this.testEndpoint('ws://localhost:3000')
+    if (isLocalAvailable) {
+      return this.connect('ws://localhost:3000')
+    }
+    
+    // 最后尝试其他端点
+    for (const endpoint of this.endpoints) {
+      const isAvailable = await this.testEndpoint(endpoint)
+      if (isAvailable) {
+        return this.connect(endpoint)
+      }
+    }
+    
+    throw new Error('未找到可用的命令执行服务')
+  },
+  
+  // 连接到指定端点
+  connect(endpoint) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (this.currentWs) {
+          this.currentWs.close()
+        }
+        
+        const ws = new WebSocket(endpoint)
+        
+        ws.onopen = () => {
+          this.currentWs = ws
+          this.lastSuccessfulEndpoint = endpoint
+          localStorage.setItem('lastWsEndpoint', endpoint)
+          console.log(`已连接到服务: ${endpoint}`)
+          resolve(ws)
+        }
+        
+        ws.onclose = () => {
+          if (this.currentWs === ws) {
+            this.currentWs = null
+          }
+        }
+        
+        ws.onerror = (error) => {
+          reject(error)
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.type === 'command_result') {
+              handleCommandResult(data)
+            }
+          } catch (error) {
+            console.error('处理消息失败:', error)
+          }
+        }
+      } catch (error) {
+        reject(error)
+      }
+    })
+  },
+  
+  // 添加新的端点
+  addEndpoint(endpoint) {
+    if (!this.endpoints.includes(endpoint)) {
+      this.endpoints.push(endpoint)
+      localStorage.setItem('wsEndpoints', JSON.stringify(this.endpoints))
+    }
+  },
+  
+  // 获取当前连接
+  getCurrentConnection() {
+    return this.currentWs
+  }
+}
 
 // 初始化 Supabase
 async function initSupabase() {
@@ -381,43 +537,6 @@ function updatePreview() {
   editArea.classList.toggle('hidden', isPreviewMode)
 }
 
-// 初始化 WebSocket 连接
-function initWebSocket() {
-  // 如果已经有连接，先关闭
-  if (ws) {
-    ws.close()
-    ws = null
-  }
-  
-  ws = new WebSocket('ws://localhost:3000')
-  
-  ws.onopen = () => {
-    console.log('WebSocket 连接成功')
-    // 只在首次连接成功时显示消息
-    if (!window.wsFirstConnected) {
-      showMessage('命令执行服务已连接')
-      window.wsFirstConnected = true
-    }
-  }
-  
-  ws.onclose = () => {
-    console.log('WebSocket 连接断开')
-    ws = null
-    // 不再自动重连，等待需要时再连接
-  }
-  
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      if (data.type === 'command_result') {
-        handleCommandResult(data)
-      }
-    } catch (error) {
-      console.error('处理消息失败:', error)
-    }
-  }
-}
-
 // 检测可用的命令执行方式
 function detectExecutionMode() {
   if (window.chrome?.webview) {
@@ -435,7 +554,6 @@ function detectExecutionMode() {
 async function executeCommand(command) {
   if (currentExecutionMode === EXECUTION_MODE.WEBVIEW) {
     try {
-      // 使用 WebView2 执行命令
       const result = await window.chrome.webview.hostObjects.powershell.executeCommand(command)
       handleCommandResult({
         type: 'command_result',
@@ -452,31 +570,24 @@ async function executeCommand(command) {
       })
     }
   } else if (currentExecutionMode === EXECUTION_MODE.WEBSOCKET) {
-    // 如果没有连接，先初始化
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      initWebSocket()
-      // 等待连接建立
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('连接超时')), 5000)
-        ws.onopen = () => {
-          clearTimeout(timeout)
-          resolve()
-        }
-        ws.onerror = () => {
-          clearTimeout(timeout)
-          reject(new Error('连接失败'))
-        }
-      })
-    }
-
     try {
+      // 获取或建立连接
+      if (!CommandService.getCurrentConnection()) {
+        await CommandService.connectToBestEndpoint()
+      }
+      
+      const ws = CommandService.getCurrentConnection()
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        throw new Error('无法连接到命令执行服务')
+      }
+      
       ws.send(JSON.stringify({
         type: 'command',
         command
       }))
     } catch (error) {
-      console.error('发送命令失败:', error)
-      showMessage('发送命令失败', 'error')
+      console.error('执行命令失败:', error)
+      showMessage(error.message, 'error')
     }
   } else {
     showMessage('未找到可用的命令执行方式', 'error')
