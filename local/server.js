@@ -26,17 +26,13 @@ function executePowerShell(command) {
     const escapedCommand = command.replace(/"/g, '`"')
     const cmd = `powershell.exe -NoProfile -NonInteractive -Command "& { ${escapedCommand} }"`
     
-    console.log('执行命令:', cmd)
-    
     exec(cmd, { encoding: 'buffer' }, (error, stdout, stderr) => {
       const output = iconv.decode(stdout, 'cp936')
       const errorOutput = iconv.decode(stderr, 'cp936')
       
-      console.log('命令输出:', { output, errorOutput, error })
-      
       resolve({
         success: !error,
-        output: error ? errorOutput : output
+        output: output || errorOutput
       })
     })
   })
