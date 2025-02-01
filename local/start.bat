@@ -1,5 +1,26 @@
 @echo off
+chcp 65001 >nul
 setlocal enabledelayedexpansion
+
+:: 检查是否以管理员权限运行
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo 请以管理员权限运行此脚本
+    powershell -Command "Start-Process '%~dpnx0' -Verb RunAs"
+    exit /b
+)
+
+:: 创建开机自启动快捷方式
+echo 正在设置开机自启动...
+set "startup_dir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+set "shortcut_path=%startup_dir%\CommandServer.lnk"
+powershell -Command ^
+    "$WS = New-Object -ComObject WScript.Shell; ^
+    $shortcut = $WS.CreateShortcut('%shortcut_path%'); ^
+    $shortcut.TargetPath = '%~dp0start.bat'; ^
+    $shortcut.WorkingDirectory = '%~dp0'; ^
+    $shortcut.WindowStyle = 7; ^
+    $shortcut.Save()"
 
 echo 正在检查Node.js环境...
 
@@ -12,11 +33,10 @@ if %errorlevel% neq 0 (
     mkdir "%temp%\nodejs-setup" 2>nul
     
     :: 下载Node.js安装包
-    powershell -Command "& {
-        $nodeUrl = 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi';
-        $output = '%temp%\nodejs-setup\node-setup.msi';
-        (New-Object System.Net.WebClient).DownloadFile($nodeUrl, $output)
-    }"
+    powershell -Command ^
+        "$nodeUrl = 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi'; ^
+        $output = Join-Path $env:TEMP 'nodejs-setup\node-setup.msi'; ^
+        Invoke-WebRequest -Uri $nodeUrl -OutFile $output"
     
     if !errorlevel! neq 0 (
         echo 下载Node.js失败，请检查网络连接或手动安装Node.js
@@ -41,9 +61,13 @@ if %errorlevel% neq 0 (
     
     :: 刷新环境变量
     echo 正在刷新环境变量...
-    call refreshenv.cmd 2>nul
+    for /f "delims=" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable('Path', 'Machine')"') do set "PATH=%%i;%PATH%"
+    
+    :: 验证Node.js安装
+    where node >nul 2>nul
     if !errorlevel! neq 0 (
-        echo 请关闭此窗口并重新运行以使Node.js安装生效
+        echo Node.js安装完成，但需要重启命令行才能生效
+        echo 请关闭此窗口并重新运行start.bat
         pause
         exit /b 0
     )

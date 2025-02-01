@@ -24,126 +24,83 @@ let currentExecutionMode = null
 
 // 服务发现和连接管理
 const CommandService = {
-  // 可用的服务端点
   endpoints: ['ws://localhost:3000'],
-  
-  // 当前连接
   currentWs: null,
-  
-  // 最后成功连接的端点
   lastSuccessfulEndpoint: null,
   
-  // 发现服务
   async discoverServices() {
     return new Promise((resolve) => {
-      const foundEndpoints = new Set(['ws://localhost:3000'])
-      const socket = new WebSocket('ws://localhost:3001/discovery')
+      const foundEndpoints = new Set()
       
-      // 3秒后超时
-      const timeout = setTimeout(() => {
-        socket.close()
+      foundEndpoints.add('ws://localhost:3000')
+      const savedEndpoints = JSON.parse(localStorage.getItem('wsEndpoints') || '[]')
+      savedEndpoints.forEach(endpoint => foundEndpoints.add(endpoint))
+      
+      const promises = []
+      for (let i = 1; i < 255; i++) {
+        promises.push(this.testEndpoint(`ws://192.168.1.${i}:3000`, 500))
+      }
+      
+      Promise.all(promises).then(results => {
+        results.forEach((isAvailable, index) => {
+          if (isAvailable) {
+            foundEndpoints.add(`ws://192.168.1.${index + 1}:3000`)
+          }
+        })
+        resolve([...foundEndpoints])
+      })
+      
+      setTimeout(() => {
         resolve([...foundEndpoints])
       }, 3000)
-      
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.type === 'NOTE_SERVICE_INFO') {
-            data.addresses.forEach(addr => {
-              foundEndpoints.add(`ws://${addr}:3000`)
-            })
-          }
-        } catch (error) {
-          console.error('解析服务信息失败:', error)
-        }
-      }
-      
-      socket.onerror = () => {
-        clearTimeout(timeout)
-        resolve([...foundEndpoints])
-      }
-      
-      // 发送发现请求
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ type: 'DISCOVER_NOTE_SERVICE' }))
-      }
     })
   },
   
-  // 更新可用端点列表
   async updateEndpoints() {
-    // 从localStorage获取保存的端点
-    const savedEndpoints = JSON.parse(localStorage.getItem('wsEndpoints') || '[]')
-    
-    // 发现服务
     const discoveredEndpoints = await this.discoverServices()
-    
-    // 合并端点列表
-    this.endpoints = [
-      'ws://localhost:3000',
-      ...discoveredEndpoints,
-      ...savedEndpoints
-    ]
-    
-    // 去重
-    this.endpoints = [...new Set(this.endpoints)]
-    console.log('可用的服务端点:', this.endpoints)
+    this.endpoints = discoveredEndpoints
+    localStorage.setItem('wsEndpoints', JSON.stringify(this.endpoints))
   },
   
-  // 测试端点连接
   async testEndpoint(endpoint, timeout = 2000) {
-    console.log('测试端点:', endpoint)
     return new Promise((resolve) => {
       try {
         const ws = new WebSocket(endpoint)
         const timer = setTimeout(() => {
           ws.close()
-          console.log('端点超时:', endpoint)
           resolve(false)
         }, timeout)
         
         ws.onopen = () => {
           clearTimeout(timer)
           ws.close()
-          console.log('端点可用:', endpoint)
           resolve(true)
         }
         
         ws.onerror = () => {
           clearTimeout(timer)
-          console.log('端点不可用:', endpoint)
           resolve(false)
         }
       } catch (error) {
-        console.log('测试端点失败:', endpoint, error)
         resolve(false)
       }
     })
   },
   
-  // 连接到最佳端点
   async connectToBestEndpoint() {
-    console.log('开始连接到最佳端点...')
     await this.updateEndpoints()
     
-    // 首先尝试上次成功的端点
-    if (this.lastSuccessfulEndpoint) {
-      console.log('尝试连接上次成功的端点:', this.lastSuccessfulEndpoint)
-      const isAvailable = await this.testEndpoint(this.lastSuccessfulEndpoint)
-      if (isAvailable) {
-        return this.connect(this.lastSuccessfulEndpoint)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    if (isMobile) {
+      const remoteEndpoints = this.endpoints.filter(ep => !ep.includes('localhost'))
+      for (const endpoint of remoteEndpoints) {
+        const isAvailable = await this.testEndpoint(endpoint)
+        if (isAvailable) {
+          return this.connect(endpoint)
+        }
       }
     }
     
-    // 然后尝试本地端点
-    console.log('尝试连接本地端点')
-    const isLocalAvailable = await this.testEndpoint('ws://localhost:3000')
-    if (isLocalAvailable) {
-      return this.connect('ws://localhost:3000')
-    }
-    
-    // 最后尝试其他端点
-    console.log('尝试连接其他端点')
     for (const endpoint of this.endpoints) {
       const isAvailable = await this.testEndpoint(endpoint)
       if (isAvailable) {
@@ -154,7 +111,6 @@ const CommandService = {
     throw new Error('未找到可用的命令执行服务，请确保本地服务已启动')
   },
   
-  // 连接到指定端点
   connect(endpoint) {
     return new Promise((resolve, reject) => {
       try {
@@ -168,7 +124,6 @@ const CommandService = {
           this.currentWs = ws
           this.lastSuccessfulEndpoint = endpoint
           localStorage.setItem('lastWsEndpoint', endpoint)
-          console.log(`已连接到服务: ${endpoint}`)
           resolve(ws)
         }
         
@@ -198,7 +153,6 @@ const CommandService = {
     })
   },
   
-  // 添加新的端点
   addEndpoint(endpoint) {
     if (!this.endpoints.includes(endpoint)) {
       this.endpoints.push(endpoint)
@@ -206,7 +160,6 @@ const CommandService = {
     }
   },
   
-  // 获取当前连接
   getCurrentConnection() {
     return this.currentWs
   }
@@ -572,12 +525,9 @@ function updatePreview() {
 function detectExecutionMode() {
   if (window.chrome?.webview) {
     currentExecutionMode = EXECUTION_MODE.WEBVIEW
-    console.log('使用 WebView2 模式')
     return
   }
-
   currentExecutionMode = EXECUTION_MODE.WEBSOCKET
-  console.log('使用 WebSocket 模式')
 }
 
 // 执行命令
@@ -601,30 +551,8 @@ async function executeCommand(command) {
     }
   } else if (currentExecutionMode === EXECUTION_MODE.WEBSOCKET) {
     try {
-      // 获取或建立连接
       if (!CommandService.getCurrentConnection()) {
-        try {
-          await CommandService.connectToBestEndpoint()
-        } catch (error) {
-          // 显示更友好的错误提示
-          const errorMessage = `
-命令执行服务未连接，请按以下步骤操作：
-
-1. 打开命令提示符或PowerShell
-2. 进入本地服务目录：cd local
-3. 安装依赖：npm install
-4. 启动服务：node server.js
-
-或者下载并运行本地版本（点击右下角的"下载本地版本"按钮）。
-`
-          handleCommandResult({
-            type: 'command_result',
-            command,
-            success: false,
-            error: errorMessage
-          })
-          return
-        }
+        await CommandService.connectToBestEndpoint()
       }
       
       const ws = CommandService.getCurrentConnection()
@@ -637,7 +565,6 @@ async function executeCommand(command) {
         command
       }))
     } catch (error) {
-      console.error('执行命令失败:', error)
       handleCommandResult({
         type: 'command_result',
         command,
