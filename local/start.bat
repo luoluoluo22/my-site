@@ -14,13 +14,7 @@ if %errorlevel% neq 0 (
 echo 正在设置开机自启动...
 set "startup_dir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "shortcut_path=%startup_dir%\CommandServer.lnk"
-powershell -Command ^
-    "$WS = New-Object -ComObject WScript.Shell; ^
-    $shortcut = $WS.CreateShortcut('%shortcut_path%'); ^
-    $shortcut.TargetPath = '%~dp0start.bat'; ^
-    $shortcut.WorkingDirectory = '%~dp0'; ^
-    $shortcut.WindowStyle = 7; ^
-    $shortcut.Save()"
+powershell -NoProfile -Command "$WS = New-Object -ComObject WScript.Shell; $shortcut = $WS.CreateShortcut('%shortcut_path%'); $shortcut.TargetPath = '%~dp0start.bat'; $shortcut.WorkingDirectory = '%~dp0'; $shortcut.WindowStyle = 7; $shortcut.Save()"
 
 echo 正在检查Node.js环境...
 
@@ -33,10 +27,7 @@ if %errorlevel% neq 0 (
     mkdir "%temp%\nodejs-setup" 2>nul
     
     :: 下载Node.js安装包
-    powershell -Command ^
-        "$nodeUrl = 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi'; ^
-        $output = Join-Path $env:TEMP 'nodejs-setup\node-setup.msi'; ^
-        Invoke-WebRequest -Uri $nodeUrl -OutFile $output"
+    powershell -NoProfile -Command "$nodeUrl = 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi'; $output = Join-Path $env:TEMP 'nodejs-setup\node-setup.msi'; Invoke-WebRequest -Uri $nodeUrl -OutFile $output"
     
     if !errorlevel! neq 0 (
         echo 下载Node.js失败，请检查网络连接或手动安装Node.js
@@ -61,7 +52,7 @@ if %errorlevel% neq 0 (
     
     :: 刷新环境变量
     echo 正在刷新环境变量...
-    for /f "delims=" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable('Path', 'Machine')"') do set "PATH=%%i;%PATH%"
+    for /f "delims=" %%i in ('powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('Path', 'Machine')"') do set "PATH=%%i;%PATH%"
     
     :: 验证Node.js安装
     where node >nul 2>nul
@@ -86,6 +77,7 @@ if not exist "node_modules" (
 
 :: 启动服务
 echo 正在启动服务...
-node server.js
+set NODE_NO_WARNINGS=1
+node --no-warnings server.js
 
 pause 

@@ -5,11 +5,13 @@ const iconv = require('iconv-lite')
 
 // 日志函数
 function log(tag, message, ...args) {
-  console.log(`[${tag}] ${message}`, ...args)
+  const encodedMessage = iconv.encode(iconv.decode(Buffer.from(message), 'utf8'), 'utf8').toString()
+  console.log(`[${tag}] ${encodedMessage}`, ...args)
 }
 
 function logError(tag, message, ...args) {
-  console.error(`[${tag}] ${message}`, ...args)
+  const encodedMessage = iconv.encode(iconv.decode(Buffer.from(message), 'utf8'), 'utf8').toString()
+  console.error(`[${tag}] ${encodedMessage}`, ...args)
 }
 
 // 获取本机IP地址
@@ -53,8 +55,9 @@ function executePowerShell(command) {
     const cmd = `powershell.exe -NoProfile -NonInteractive -Command "${cleanCommand}"`
     
     exec(cmd, { encoding: 'buffer' }, (err, stdout, stderr) => {
-      const output = iconv.decode(stdout, 'cp936')
-      const errorOutput = iconv.decode(stderr, 'cp936')
+      // 使用GBK编码处理输出
+      const output = iconv.decode(stdout, 'gbk')
+      const errorOutput = iconv.decode(stderr, 'gbk')
       
       if (output || errorOutput) {
         log('命令执行', '命令输出:', output || errorOutput)
