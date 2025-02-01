@@ -180,15 +180,54 @@ function setupAutoSave() {
   const contentElement = document.getElementById('noteContent')
   const titleElement = document.getElementById('noteTitle')
 
+  let isSaving = false
+
+  async function performAutoSave() {
+    if (isSaving || !isAuthenticated || !currentNote) return
+    
+    try {
+      isSaving = true
+      const titleElement = document.getElementById('noteTitle')
+      const contentElement = document.getElementById('noteContent')
+
+      const title = titleElement.value.trim()
+      const content = contentElement.value.trim()
+      const now = new Date().toISOString()
+
+      let noteData = {
+        title,
+        content,
+        updated_at: now
+      }
+
+      if (currentNote.id) {
+        const { error } = await supabaseClient
+          .from('notes')
+          .update(noteData)
+          .eq('id', currentNote.id)
+
+        if (error) throw error
+      }
+      
+      // 不显示保存成功的消息，静默保存
+      console.log('自动保存成功')
+    } catch (error) {
+      console.error('自动保存失败:', error)
+      // 自动保存失败时也不显示错误消息，避免打扰用户
+    } finally {
+      isSaving = false
+    }
+  }
+
   if (contentElement && titleElement) {
     contentElement.addEventListener('input', () => {
       if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
-      autoSaveTimeout = setTimeout(() => saveNote(true), 2000)
+      autoSaveTimeout = setTimeout(performAutoSave, 3000) // 增加到3秒
     })
 
     titleElement.addEventListener('input', () => {
       if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
-      autoSaveTimeout = setTimeout(() => saveNote(true), 2000)
+      autoSaveTimeout = setTimeout(performAutoSave, 3000) // 增加到3秒
     })
   }
 }
@@ -344,18 +383,27 @@ function updatePreview() {
 
 // 初始化 WebSocket 连接
 function initWebSocket() {
+  // 如果已经有连接，先关闭
+  if (ws) {
+    ws.close()
+    ws = null
+  }
+  
   ws = new WebSocket('ws://localhost:3000')
   
   ws.onopen = () => {
     console.log('WebSocket 连接成功')
-    showMessage('命令执行服务已连接')
+    // 只在首次连接成功时显示消息
+    if (!window.wsFirstConnected) {
+      showMessage('命令执行服务已连接')
+      window.wsFirstConnected = true
+    }
   }
   
   ws.onclose = () => {
     console.log('WebSocket 连接断开')
-    showMessage('命令执行服务已断开', 'error')
-    // 5秒后尝试重连
-    setTimeout(initWebSocket, 5000)
+    ws = null
+    // 不再自动重连，等待需要时再连接
   }
   
   ws.onmessage = (event) => {
@@ -380,7 +428,7 @@ function detectExecutionMode() {
 
   currentExecutionMode = EXECUTION_MODE.WEBSOCKET
   console.log('使用 WebSocket 模式')
-  initWebSocket()
+  // 不再立即初始化 WebSocket
 }
 
 // 执行命令
@@ -404,9 +452,21 @@ async function executeCommand(command) {
       })
     }
   } else if (currentExecutionMode === EXECUTION_MODE.WEBSOCKET) {
+    // 如果没有连接，先初始化
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      showMessage('命令执行服务未连接', 'error')
-      return
+      initWebSocket()
+      // 等待连接建立
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('连接超时')), 5000)
+        ws.onopen = () => {
+          clearTimeout(timeout)
+          resolve()
+        }
+        ws.onerror = () => {
+          clearTimeout(timeout)
+          reject(new Error('连接失败'))
+        }
+      })
     }
 
     try {
