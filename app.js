@@ -578,7 +578,6 @@ function detectExecutionMode() {
 
   currentExecutionMode = EXECUTION_MODE.WEBSOCKET
   console.log('使用 WebSocket 模式')
-  // 不再立即初始化 WebSocket
 }
 
 // 执行命令
@@ -604,7 +603,28 @@ async function executeCommand(command) {
     try {
       // 获取或建立连接
       if (!CommandService.getCurrentConnection()) {
-        await CommandService.connectToBestEndpoint()
+        try {
+          await CommandService.connectToBestEndpoint()
+        } catch (error) {
+          // 显示更友好的错误提示
+          const errorMessage = `
+命令执行服务未连接，请按以下步骤操作：
+
+1. 打开命令提示符或PowerShell
+2. 进入本地服务目录：cd local
+3. 安装依赖：npm install
+4. 启动服务：node server.js
+
+或者下载并运行本地版本（点击右下角的"下载本地版本"按钮）。
+`
+          handleCommandResult({
+            type: 'command_result',
+            command,
+            success: false,
+            error: errorMessage
+          })
+          return
+        }
       }
       
       const ws = CommandService.getCurrentConnection()
@@ -618,10 +638,20 @@ async function executeCommand(command) {
       }))
     } catch (error) {
       console.error('执行命令失败:', error)
-      showMessage(error.message, 'error')
+      handleCommandResult({
+        type: 'command_result',
+        command,
+        success: false,
+        error: error.message
+      })
     }
   } else {
-    showMessage('未找到可用的命令执行方式', 'error')
+    handleCommandResult({
+      type: 'command_result',
+      command,
+      success: false,
+      error: '未找到可用的命令执行方式'
+    })
   }
 }
 
@@ -637,6 +667,13 @@ function handleCommandResult(data) {
         <span class="command-status">${success ? '成功' : '失败'}</span>
       </div>
       <pre class="command-output">${output || error || '无输出'}</pre>
+      ${!success ? `
+        <div class="command-error-help">
+          <button onclick="downloadLocal()" class="download-local-btn">
+            下载本地版本
+          </button>
+        </div>
+      ` : ''}
     </div>
   `
   
@@ -647,6 +684,17 @@ function handleCommandResult(data) {
     resultContainer.id = 'commandResults'
     resultContainer.className = 'command-results-container'
     
+    // 添加清除按钮
+    const clearButton = document.createElement('button')
+    clearButton.className = 'clear-results-btn'
+    clearButton.innerHTML = '清除'
+    clearButton.onclick = () => {
+      resultContainer.innerHTML = ''
+      // 重新添加清除按钮
+      resultContainer.appendChild(clearButton)
+    }
+    resultContainer.appendChild(clearButton)
+    
     // 添加到编辑器容器中
     const editorContainer = document.querySelector('.editor-container')
     if (editorContainer) {
@@ -655,7 +703,12 @@ function handleCommandResult(data) {
   }
   
   // 添加结果到容器
-  resultContainer.insertAdjacentHTML('beforeend', resultHtml)
+  const clearButton = resultContainer.querySelector('.clear-results-btn')
+  if (clearButton) {
+    clearButton.insertAdjacentHTML('afterend', resultHtml)
+  } else {
+    resultContainer.insertAdjacentHTML('beforeend', resultHtml)
+  }
   resultContainer.scrollTop = resultContainer.scrollHeight
   
   // 同时也添加到预览区域

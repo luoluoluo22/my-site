@@ -825,6 +825,59 @@ textarea:focus {
     overflow: auto;
 }
 
+/* 清除按钮 */
+.clear-results-btn {
+    position: sticky;
+    top: 0;
+    right: 0;
+    margin-bottom: 10px;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    z-index: 1;
+}
+
+.clear-results-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* 错误帮助区域 */
+.command-error-help {
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+/* 下载本地版本按钮 */
+.download-local-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.download-local-btn:hover {
+    background: var(--accent-hover);
+}
+
+.download-local-btn::before {
+    content: '↓';
+    margin-right: 6px;
+    font-size: 1.1em;
+}
+
 /* 在预览模式下隐藏固定容器 */
 body.preview-mode .command-results-container {
     display: none;
