@@ -866,6 +866,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   detectExecutionMode()
 })
 
+// 下载本地版本
+async function downloadLocal() {
+  try {
+    const response = await fetch('public/downloads/command-server.zip')
+    if (!response.ok) {
+      throw new Error('下载失败')
+    }
+    
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'command-server.zip'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    
+    showMessage('下载完成！请解压后以管理员身份运行 start.bat')
+  } catch (error) {
+    console.error('下载失败:', error)
+    showMessage('下载失败，请稍后重试', 'error')
+  }
+}
+
 // 导出函数
 export {
   saveNote,
@@ -878,11 +903,13 @@ export {
   toggleSidebar,
   searchNotes,
   toggleTheme,
-  selectNote,  // 导出 selectNote
+  selectNote,
+  downloadLocal  // 导出下载函数
 }
 
 // 将必要的函数绑定到 window 对象
 window.deleteNote = deleteNote
 window.authenticate = authenticate
 window.logout = logout
-window.handleNoteClick = handleNoteClick  // 添加点击处理函数到全局
+window.handleNoteClick = handleNoteClick
+window.downloadLocal = downloadLocal  // 添加到全局对象
