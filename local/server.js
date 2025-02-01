@@ -1,7 +1,6 @@
 const WebSocket = require('ws')
 const { exec } = require('child_process')
 const os = require('os')
-const dgram = require('dgram')
 
 // 获取本机IP地址
 function getLocalIPs() {
@@ -19,36 +18,17 @@ function getLocalIPs() {
   return addresses
 }
 
-// 创建UDP服务用于服务发现
-const discoverySocket = dgram.createSocket('udp4')
+// 创建命令执行服务器
+const commandServer = new WebSocket.Server({ port: 3000 })
+console.log('命令执行服务已启动在端口 3000')
 
-discoverySocket.on('message', (msg, rinfo) => {
-  try {
-    const data = JSON.parse(msg.toString())
-    if (data.type === 'DISCOVER_NOTE_SERVICE') {
-      // 响应服务发现请求
-      const response = JSON.stringify({
-        type: 'NOTE_SERVICE_INFO',
-        port: 3000,
-        addresses: getLocalIPs()
-      })
-      discoverySocket.send(response, rinfo.port, rinfo.address)
-    }
-  } catch (error) {
-    console.error('处理发现请求失败:', error)
-  }
-})
+// 创建服务发现服务器
+const discoveryServer = new WebSocket.Server({ port: 3001 })
+console.log('服务发现服务已启动在端口 3001')
 
-discoverySocket.bind(3001, () => {
-  discoverySocket.setBroadcast(true)
-  console.log('服务发现已启动在端口 3001')
-})
-
-// WebSocket服务器
-const wss = new WebSocket.Server({ port: 3000 })
-
-wss.on('connection', (ws) => {
-  console.log('新的客户端连接')
+// 处理命令执行
+commandServer.on('connection', (ws) => {
+  console.log('新的命令执行客户端连接')
   
   ws.on('message', async (message) => {
     try {
@@ -65,7 +45,7 @@ wss.on('connection', (ws) => {
         })
       }
     } catch (error) {
-      console.error('处理消息失败:', error)
+      console.error('处理命令失败:', error)
       ws.send(JSON.stringify({
         type: 'command_result',
         success: false,
@@ -75,4 +55,23 @@ wss.on('connection', (ws) => {
   })
 })
 
-console.log('WebSocket服务器已启动在端口 3000') 
+// 处理服务发现
+discoveryServer.on('connection', (ws) => {
+  console.log('新的服务发现客户端连接')
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message)
+      
+      if (data.type === 'DISCOVER_NOTE_SERVICE') {
+        ws.send(JSON.stringify({
+          type: 'NOTE_SERVICE_INFO',
+          addresses: getLocalIPs(),
+          port: 3000
+        }))
+      }
+    } catch (error) {
+      console.error('处理发现请求失败:', error)
+    }
+  })
+}) 

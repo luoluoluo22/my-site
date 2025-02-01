@@ -805,3 +805,110 @@ textarea:focus {
     max-height: 300px;
     overflow-y: auto;
 }
+
+/* 命令结果容器 */
+.command-results-container {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 40%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px 0 0 0;
+    box-shadow: 0 -2px 10px var(--shadow-color);
+    z-index: 1000;
+    padding: 10px;
+    margin: 0;
+    resize: both;
+    overflow: auto;
+}
+
+/* 在预览模式下隐藏固定容器 */
+body.preview-mode .command-results-container {
+    display: none;
+}
+
+/* 命令结果样式优化 */
+.command-result {
+    margin: 0.5rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.command-result.success {
+    border-left: 3px solid var(--accent-color);
+}
+
+.command-result.error {
+    border-left: 3px solid var(--danger-color);
+}
+
+.command-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.command-text {
+    font-family: monospace;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 1rem;
+}
+
+.command-status {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.success .command-status {
+    background: var(--accent-color);
+    color: white;
+}
+
+.error .command-status {
+    background: var(--danger-color);
+    color: white;
+}
+
+.command-output {
+    padding: 0.5rem;
+    margin: 0;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+
+/* 滚动条样式 */
+.command-results-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.command-results-container::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.command-results-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.command-results-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}

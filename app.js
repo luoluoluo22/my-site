@@ -25,11 +25,7 @@ let currentExecutionMode = null
 // 服务发现和连接管理
 const CommandService = {
   // 可用的服务端点
-  endpoints: [
-    'ws://localhost:3000',           // 本地服务
-    'ws://192.168.1.100:3000',      // 示例：局域网中的其他设备
-    'ws://192.168.1.101:3000'
-  ],
+  endpoints: ['ws://localhost:3000'],
   
   // 当前连接
   currentWs: null,
@@ -37,16 +33,41 @@ const CommandService = {
   // 最后成功连接的端点
   lastSuccessfulEndpoint: null,
   
-  // 获取本地IP地址
-  async getLocalIPs() {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json')
-      const data = await response.json()
-      return [data.ip]
-    } catch (error) {
-      console.error('获取IP地址失败:', error)
-      return []
-    }
+  // 发现服务
+  async discoverServices() {
+    return new Promise((resolve) => {
+      const foundEndpoints = new Set(['ws://localhost:3000'])
+      const socket = new WebSocket('ws://localhost:3001/discovery')
+      
+      // 3秒后超时
+      const timeout = setTimeout(() => {
+        socket.close()
+        resolve([...foundEndpoints])
+      }, 3000)
+      
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'NOTE_SERVICE_INFO') {
+            data.addresses.forEach(addr => {
+              foundEndpoints.add(`ws://${addr}:3000`)
+            })
+          }
+        } catch (error) {
+          console.error('解析服务信息失败:', error)
+        }
+      }
+      
+      socket.onerror = () => {
+        clearTimeout(timeout)
+        resolve([...foundEndpoints])
+      }
+      
+      // 发送发现请求
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: 'DISCOVER_NOTE_SERVICE' }))
+      }
+    })
   },
   
   // 更新可用端点列表
@@ -54,41 +75,47 @@ const CommandService = {
     // 从localStorage获取保存的端点
     const savedEndpoints = JSON.parse(localStorage.getItem('wsEndpoints') || '[]')
     
-    // 获取本地IP
-    const localIPs = await this.getLocalIPs()
+    // 发现服务
+    const discoveredEndpoints = await this.discoverServices()
     
     // 合并端点列表
     this.endpoints = [
       'ws://localhost:3000',
-      ...localIPs.map(ip => `ws://${ip}:3000`),
+      ...discoveredEndpoints,
       ...savedEndpoints
     ]
     
     // 去重
     this.endpoints = [...new Set(this.endpoints)]
+    console.log('可用的服务端点:', this.endpoints)
   },
   
   // 测试端点连接
   async testEndpoint(endpoint, timeout = 2000) {
+    console.log('测试端点:', endpoint)
     return new Promise((resolve) => {
       try {
         const ws = new WebSocket(endpoint)
         const timer = setTimeout(() => {
           ws.close()
+          console.log('端点超时:', endpoint)
           resolve(false)
         }, timeout)
         
         ws.onopen = () => {
           clearTimeout(timer)
           ws.close()
+          console.log('端点可用:', endpoint)
           resolve(true)
         }
         
         ws.onerror = () => {
           clearTimeout(timer)
+          console.log('端点不可用:', endpoint)
           resolve(false)
         }
-      } catch {
+      } catch (error) {
+        console.log('测试端点失败:', endpoint, error)
         resolve(false)
       }
     })
@@ -96,10 +123,12 @@ const CommandService = {
   
   // 连接到最佳端点
   async connectToBestEndpoint() {
+    console.log('开始连接到最佳端点...')
     await this.updateEndpoints()
     
     // 首先尝试上次成功的端点
     if (this.lastSuccessfulEndpoint) {
+      console.log('尝试连接上次成功的端点:', this.lastSuccessfulEndpoint)
       const isAvailable = await this.testEndpoint(this.lastSuccessfulEndpoint)
       if (isAvailable) {
         return this.connect(this.lastSuccessfulEndpoint)
@@ -107,12 +136,14 @@ const CommandService = {
     }
     
     // 然后尝试本地端点
+    console.log('尝试连接本地端点')
     const isLocalAvailable = await this.testEndpoint('ws://localhost:3000')
     if (isLocalAvailable) {
       return this.connect('ws://localhost:3000')
     }
     
     // 最后尝试其他端点
+    console.log('尝试连接其他端点')
     for (const endpoint of this.endpoints) {
       const isAvailable = await this.testEndpoint(endpoint)
       if (isAvailable) {
@@ -120,7 +151,7 @@ const CommandService = {
       }
     }
     
-    throw new Error('未找到可用的命令执行服务')
+    throw new Error('未找到可用的命令执行服务，请确保本地服务已启动')
   },
   
   // 连接到指定端点
@@ -609,6 +640,25 @@ function handleCommandResult(data) {
     </div>
   `
   
+  // 创建或获取命令结果容器
+  let resultContainer = document.getElementById('commandResults')
+  if (!resultContainer) {
+    resultContainer = document.createElement('div')
+    resultContainer.id = 'commandResults'
+    resultContainer.className = 'command-results-container'
+    
+    // 添加到编辑器容器中
+    const editorContainer = document.querySelector('.editor-container')
+    if (editorContainer) {
+      editorContainer.appendChild(resultContainer)
+    }
+  }
+  
+  // 添加结果到容器
+  resultContainer.insertAdjacentHTML('beforeend', resultHtml)
+  resultContainer.scrollTop = resultContainer.scrollHeight
+  
+  // 同时也添加到预览区域
   const previewElement = document.getElementById('preview')
   if (previewElement) {
     previewElement.insertAdjacentHTML('beforeend', resultHtml)
