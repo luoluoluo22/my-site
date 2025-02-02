@@ -27,16 +27,16 @@ const validateApiKey = (req, res, next) => {
   const apiKey = req.headers['authorization'];
   if (!apiKey || !apiKey.startsWith('Bearer ')) {
     return res.status(401).json({ 
-      error: 'Invalid Authorization header format',
-      message: '无效的Authorization头格式'
+      error_code: 1001,
+      error_msg: 'Invalid Authorization header format. Expected Bearer format.'
     });
   }
   
   const token = apiKey.split(' ')[1];
   if (token !== process.env.KNOWLEDGE_API_KEY) {
     return res.status(401).json({ 
-      error: 'Authorization failed',
-      message: '认证失败：API密钥不正确'
+      error_code: 1002,
+      error_msg: 'Authorization failed'
     });
   }
   
@@ -44,21 +44,31 @@ const validateApiKey = (req, res, next) => {
 };
 
 // 检索接口
-app.post('/api/retrieval', validateApiKey, async (req, res) => {
+app.post('/retrieval', validateApiKey, async (req, res) => {
   try {
     // 检查Supabase配置
     if (!SUPABASE_KEY) {
       throw new Error('未配置Supabase密钥，请在环境变量中设置SUPABASE_KEY');
     }
 
-    const { query, top_k = 3, score_threshold = 0.5 } = req.body;
+    const { knowledge_id, query, retrieval_setting } = req.body;
     
-    if (!query) {
-      return res.status(400).json({ 
-        error: 'Query is required',
-        message: '查询内容不能为空'
+    if (!knowledge_id) {
+      return res.status(404).json({ 
+        error_code: 2001,
+        error_msg: 'The knowledge does not exist'
       });
     }
+
+    if (!query) {
+      return res.status(400).json({ 
+        error_code: 400,
+        error_msg: 'Query is required'
+      });
+    }
+
+    const top_k = retrieval_setting?.top_k || 3;
+    const score_threshold = retrieval_setting?.score_threshold || 0.5;
     
     // 从Supabase获取笔记内容
     const { data: notes, error } = await supabaseClient
@@ -71,38 +81,36 @@ app.post('/api/retrieval', validateApiKey, async (req, res) => {
       throw new Error('获取笔记数据失败：' + error.message);
     }
     
-    // 简单的相关性计算
-    const results = notes
+    // 相关性计算
+    const records = notes
       .map(note => {
-        const content = `${note.title}\n${note.content}`;
-        const score = calculateRelevance(query, content);
+        const score = calculateRelevance(query, note.content);
         return {
-          content: content,
-          score: score
+          metadata: {
+            source: 'notes',
+            updated_at: note.updated_at
+          },
+          score: score,
+          title: note.title,
+          content: note.content
         };
       })
       .filter(item => item.score >= score_threshold)
       .sort((a, b) => b.score - a.score)
       .slice(0, top_k);
       
-    res.json({
-      query: query,
-      documents: results.map(r => ({
-        content: r.content,
-        score: r.score
-      }))
-    });
+    res.json({ records });
     
   } catch (error) {
     console.error('API错误:', error);
     res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message || '服务器内部错误'
+      error_code: 500,
+      error_msg: error.message || 'Internal server error'
     });
   }
 });
 
-// 简单的相关性计算函数
+// 相关性计算函数
 function calculateRelevance(query, content) {
   const queryTerms = query.toLowerCase().split(/\s+/);
   const contentLower = content.toLowerCase();
@@ -114,7 +122,7 @@ function calculateRelevance(query, content) {
     }
   }
   
-  return score / queryTerms.length;
+  return Math.min(1, score / queryTerms.length); // 确保分数在0-1之间
 }
 
 // 本地开发时使用
