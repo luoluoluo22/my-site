@@ -7,11 +7,11 @@
   NODE_VERSION = "18"
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/api/*"
+  to = "/.netlify/functions/knowledge-api/:splat"
   status = 200
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/knowledge-api/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
