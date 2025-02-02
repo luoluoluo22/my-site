@@ -44,7 +44,7 @@ const validateApiKey = (req, res, next) => {
 };
 
 // 检索接口
-app.post('/retrieval', validateApiKey, async (req, res) => {
+app.post('/', validateApiKey, async (req, res) => {
   try {
     // 检查Supabase配置
     if (!SUPABASE_KEY) {
