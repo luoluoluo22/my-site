@@ -2,7 +2,7 @@ import requests
 import json
 
 def test_knowledge_api():
-    API_URL = 'https://luoluo.netlify.app/.netlify/functions/knowledge-api/knowledge-api/retrieval'
+    API_URL = 'https://luoluo.netlify.app/.netlify/functions/knowledge-api/retrieval'
     API_KEY = '1234567890'
 
     print('开始测试知识库API...')
