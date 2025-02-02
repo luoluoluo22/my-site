@@ -13,6 +13,7 @@
 - 🔒 简单的密码保护
 - 🌐 局域网设备自动发现
 - 🚀 一键部署本地服务
+- 🔌 外部知识库API集成
 
 ## 命令执行功能
 
@@ -116,4 +117,68 @@ my-site/
 
 ## 技术支持
 
-如有问题或建议，请提交Issue或Pull Request。 
+如有问题或建议，请提交Issue或Pull Request。
+
+## 知识库API
+
+系统提供了外部知识库API，可以将笔记内容作为知识库供其他应用调用：
+
+### API端点
+
+- 基础URL: `http://localhost:3002`
+- 检索接口: `POST /retrieval`
+
+### 认证
+
+使用Bearer Token认证：
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+API密钥在首次启动时自动生成，保存在`.env`文件中。
+
+### 请求格式
+
+```json
+{
+  "query": "搜索内容",
+  "top_k": 3,
+  "score_threshold": 0.5
+}
+```
+
+参数说明：
+- `query`: 必填，搜索查询内容
+- `top_k`: 可选，返回的最大结果数量，默认3
+- `score_threshold`: 可选，相关性分数阈值，默认0.5
+
+### 响应格式
+
+```json
+{
+  "query": "原始查询",
+  "documents": [
+    {
+      "content": "匹配的内容",
+      "score": 0.8
+    }
+  ]
+}
+```
+
+### 使用示例
+
+```python
+import requests
+
+url = "http://localhost:3002/retrieval"
+headers = {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+data = {
+    "query": "Python编程",
+    "top_k": 5
+}
+
+response = requests.post(url, json=data, headers=headers)
+results = response.json() 

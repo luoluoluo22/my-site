@@ -91,9 +91,31 @@ if not exist "node_modules" (
     )
 )
 
+:: 生成随机API密钥（如果不存在）
+if not exist ".env" (
+    echo 正在生成API密钥...
+    powershell -NoProfile -Command "$apiKey = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 32 | ForEach-Object {[char]$_}); Add-Content .env \"KNOWLEDGE_API_KEY=$apiKey\""
+    echo API密钥已保存到.env文件
+)
+
 :: 启动服务
 echo 正在启动服务...
 set NODE_NO_WARNINGS=1
-node --no-warnings server.js
 
+:: 启动命令执行服务
+start "命令执行服务" cmd /c "node --no-warnings server.js"
+
+:: 启动知识库API服务
+start "知识库API服务" cmd /c "node --no-warnings knowledge-api.js"
+
+echo 所有服务已启动！
+echo 命令执行服务: http://localhost:3000
+echo 知识库API服务: http://localhost:3002
+echo.
+echo API文档:
+echo POST /retrieval - 检索知识库内容
+echo 请求头: Authorization: Bearer {API_KEY}
+echo 请求体: {"query": "搜索内容", "top_k": 3, "score_threshold": 0.5}
+echo.
+echo 按任意键退出...
 pause 
