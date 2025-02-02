@@ -8,8 +8,8 @@ app.use(cors());
 app.use(express.json());
 
 // 初始化Supabase客户端
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gptacdyjxmjzlmgwjmms.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gptacdyjxmjzlmgwjmms.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY;
 
 if (!SUPABASE_KEY) {
   console.error('错误: 未设置SUPABASE_KEY环境变量');
