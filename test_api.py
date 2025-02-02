@@ -27,8 +27,8 @@ def test_knowledge_api():
     print('请求数据:', json.dumps(data, ensure_ascii=False, indent=2))
 
     try:
-        # 发送请求
-        response = requests.post(API_URL, headers=headers, json=data)
+        # 发送请求，设置30秒超时
+        response = requests.post(API_URL, headers=headers, json=data, timeout=30)
 
         # 打印响应信息
         print('\n响应状态码:', response.status_code)

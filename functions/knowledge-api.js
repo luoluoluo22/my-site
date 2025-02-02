@@ -45,13 +45,23 @@ const validateApiKey = (req, res, next) => {
 
 // 检索接口
 app.post('/', validateApiKey, async (req, res) => {
+  console.log('收到API请求:', {
+    headers: req.headers,
+    body: req.body
+  });
+
   try {
     // 检查Supabase配置
     if (!SUPABASE_KEY) {
-      throw new Error('未配置Supabase密钥，请在环境变量中设置SUPABASE_KEY');
+      console.error('Supabase密钥未配置');
+      return res.status(500).json({ 
+        error_code: 500,
+        error_msg: '未配置Supabase密钥，请在环境变量中设置SUPABASE_KEY'
+      });
     }
 
     const { knowledge_id, query, retrieval_setting } = req.body;
+    console.log('请求参数:', { knowledge_id, query, retrieval_setting });
     
     if (!knowledge_id) {
       return res.status(404).json({ 
@@ -70,16 +80,22 @@ app.post('/', validateApiKey, async (req, res) => {
     const top_k = retrieval_setting?.top_k || 3;
     const score_threshold = retrieval_setting?.score_threshold || 0.5;
     
+    console.log('开始查询Supabase...');
     // 从Supabase获取笔记内容
     const { data: notes, error } = await supabaseClient
       .from('notes')
-      .select('title, content')
+      .select('title, content, updated_at')
       .order('updated_at', { ascending: false });
       
     if (error) {
       console.error('Supabase查询错误:', error);
-      throw new Error('获取笔记数据失败：' + error.message);
+      return res.status(500).json({ 
+        error_code: 500,
+        error_msg: '获取笔记数据失败：' + error.message
+      });
     }
+
+    console.log(`获取到 ${notes?.length || 0} 条笔记`);
     
     // 相关性计算
     const records = notes
@@ -98,7 +114,8 @@ app.post('/', validateApiKey, async (req, res) => {
       .filter(item => item.score >= score_threshold)
       .sort((a, b) => b.score - a.score)
       .slice(0, top_k);
-      
+    
+    console.log(`筛选出 ${records.length} 条相关记录`);
     res.json({ records });
     
   } catch (error) {
