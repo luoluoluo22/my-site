@@ -9,19 +9,35 @@ app.use(express.json());
 
 // 初始化Supabase客户端
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gptacdyjxmjzlmgwjmms.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+if (!SUPABASE_KEY) {
+  console.error('错误: 未设置SUPABASE_KEY环境变量');
+}
+
+let supabaseClient;
+try {
+  supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY || '');
+} catch (error) {
+  console.error('Supabase客户端初始化失败:', error);
+}
 
 // API密钥验证中间件
 const validateApiKey = (req, res, next) => {
   const apiKey = req.headers['authorization'];
   if (!apiKey || !apiKey.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Invalid Authorization header format' });
+    return res.status(401).json({ 
+      error: 'Invalid Authorization header format',
+      message: '无效的Authorization头格式'
+    });
   }
   
   const token = apiKey.split(' ')[1];
   if (token !== process.env.KNOWLEDGE_API_KEY) {
-    return res.status(401).json({ error: 'Authorization failed' });
+    return res.status(401).json({ 
+      error: 'Authorization failed',
+      message: '认证失败：API密钥不正确'
+    });
   }
   
   next();
@@ -30,23 +46,32 @@ const validateApiKey = (req, res, next) => {
 // 检索接口
 app.post('/api/retrieval', validateApiKey, async (req, res) => {
   try {
+    // 检查Supabase配置
+    if (!SUPABASE_KEY) {
+      throw new Error('未配置Supabase密钥，请在环境变量中设置SUPABASE_KEY');
+    }
+
     const { query, top_k = 3, score_threshold = 0.5 } = req.body;
     
     if (!query) {
-      return res.status(400).json({ error: 'Query is required' });
+      return res.status(400).json({ 
+        error: 'Query is required',
+        message: '查询内容不能为空'
+      });
     }
     
     // 从Supabase获取笔记内容
-    const { data: notes, error } = await supabase
+    const { data: notes, error } = await supabaseClient
       .from('notes')
       .select('title, content')
       .order('updated_at', { ascending: false });
       
     if (error) {
-      throw error;
+      console.error('Supabase查询错误:', error);
+      throw new Error('获取笔记数据失败：' + error.message);
     }
     
-    // 简单的相关性计算（实际项目中可以使用更复杂的算法）
+    // 简单的相关性计算
     const results = notes
       .map(note => {
         const content = `${note.title}\n${note.content}`;
@@ -69,8 +94,11 @@ app.post('/api/retrieval', validateApiKey, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('检索失败:', error);
-    res.status(500).json({ error: '检索失败' });
+    console.error('API错误:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message || '服务器内部错误'
+    });
   }
 });
 
