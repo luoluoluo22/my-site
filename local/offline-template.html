@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>我的个人管理 - 增强离线版</title>
+    <meta charset="UTF-8">
+    <!-- 内联样式，避免外部依赖 -->
+    <style>
+        /* 从style.css复制的关键样式 */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --accent-color: #4a90e2;
+            --border-color: #e0e0e0;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --error-color: #f44336;
+        }
+
+        /* 深色主题 */
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --border-color: #404040;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            border-right: 1px solid var(--border-color);
+            background-color: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .note-editor {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .editor-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #editor, #preview {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        #editor {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            border: none;
+            resize: none;
+            outline: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .note-toolbar {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title-input {
+            font-size: 20px;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            width: 200px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin-left: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .notes-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .note-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .note-item:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .note-item.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .note-item .note-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .note-item .note-preview {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .import-export {
+            padding: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 4px;
+            background-color: var(--success-color);
+            color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            background-color: var(--success-color);
+        }
+
+        .notification.warning {
+            background-color: var(--warning-color);
+        }
+
+        .notification.error {
+            background-color: var(--error-color);
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 预览样式 */
+        #preview {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        #preview code {
+            background-color: var(--bg-secondary);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        #preview pre {
+            background-color: var(--bg-secondary);
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        #preview blockquote {
+            border-left: 4px solid var(--accent-color);
+            padding-left: 10px;
+            margin-left: 0;
+            color: var(--text-secondary);
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        #preview table th, #preview table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+        }
+
+        #preview table th {
+            background-color: var(--bg-secondary);
+            text-align: left;
+        }
+
+        .sidebar-footer {
+            padding: 10px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 导入线上笔记窗口 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: var(--bg-primary);
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        /* 添加同步状态样式 */
+        .sync-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 5px;
+            background-color: var(--bg-secondary);
+            border-radius: 4px;
+        }
+        
+        .sync-status {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+        
+        .sync-status.online {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .sync-status.offline {
+            background-color: var(--warning-color);
+            color: white;
+        }
+        
+        .sync-indicator {
+            margin-left: 5px;
+            font-size: 0.8em;
+        }
+        
+        /* 微调导入窗口样式 */
+        .modal-content {
+            max-width: 450px;
+        }
+        
+        .form-group input {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 通知区域 -->
+    <div id="notification" class="notification"></div>
+
+    <!-- 加载动画 -->
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- 导入线上笔记窗口 -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>导入线上笔记</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="supabaseUrl">Supabase URL:</label>
+                    <input type="text" id="supabaseUrl" value="https://gptacdyjxmjzlmgwjmms.supabase.co">
+                </div>
+                <div class="form-group">
+                    <label for="supabaseKey">Supabase Key:</label>
+                    <input type="password" id="supabaseKey" placeholder="输入您的Supabase访问密钥">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal()">取消</button>
+                <button onclick="importOnlineNotes()">导入</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" class="app-container">
+        <div class="sidebar">
+            <div class="note-toolbar">
+                <h2>我的笔记</h2>
+                <button onclick="createNewNote()">新建</button>
+            </div>
+            <div id="notesList" class="notes-list">
+                <!-- 笔记列表将通过JavaScript动态生成 -->
+            </div>
+            <div class="sidebar-footer">
+                <div class="sync-info">
+                    <span id="syncStatus" class="sync-status offline">离线</span>
+                    <button onclick="forceSync()" title="与云端同步数据">同步</button>
+                </div>
+                <button onclick="toggleTheme()">
+                    <span id="themeIcon">🌙</span> 切换主题
+                </button>
+                <button onclick="showImportModal()">导入线上笔记</button>
+                <button onclick="exportNotes()">导出笔记</button>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="note-editor">
+                <div class="note-toolbar">
+                    <input type="text" id="noteTitle" placeholder="笔记标题" class="title-input">
+                    <div class="toolbar-buttons">
+                        <button onclick="togglePreview()">
+                            <span id="previewButtonText">预览</span>
+                        </button>
+                        <button onclick="saveNote()">保存</button>
+                    </div>
+                </div>
+                <div class="editor-container">
+                    <textarea id="editor" placeholder="在这里输入Markdown内容..."></textarea>
+                    <div id="preview" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内联marked.js库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 添加Supabase客户端库，用于在线同步 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    
+    <script>
+        // 状态管理
+        let notes = [];
+        let currentNote = null;
+        let isPreviewMode = false;
+        let supabaseClient = null;
+        let isOnline = navigator.onLine;
+        let syncInProgress = false;
+        let lastSyncTime = localStorage.getItem('lastSyncTime') || null;
+        let pendingChanges = JSON.parse(localStorage.getItem('pendingChanges') || '[]');
+
+        // 初始化
+        function init() {
+            // 首先尝试从localStorage加载笔记（这样优先使用本地修改的版本）
+            const storedNotes = localStorage.getItem('offline_notes');
+            
+            if (storedNotes) {
+                // 如果localStorage中有数据，优先使用它
+                notes = JSON.parse(storedNotes);
+                console.log('从localStorage加载笔记:', notes.length);
+            } else if (window.PRELOADED_NOTES && window.PRELOADED_NOTES.length > 0) {
+                // 只有在localStorage没有数据时，才使用预加载的数据
+                notes = window.PRELOADED_NOTES;
+                console.log('使用预加载数据:', notes.length, '条笔记');
+                localStorage.setItem('offline_notes', JSON.stringify(notes));
+                
+                // 将所有预加载的笔记标记为已同步
+                localStorage.removeItem('pendingChanges');
+                pendingChanges = [];
+                console.log('所有笔记已标记为同步状态');
+            }
+            
+            renderNotesList();
+            setupEventListeners();
+            loadLastEditedNote();
+            updateThemeIcon();
+            checkOnlineStatus();
+            initSupabaseConnection();
+        }
+
+        // 检查网络连接状态
+        function checkOnlineStatus() {
+            isOnline = navigator.onLine;
+            updateSyncStatus();
+            
+            if (isOnline) {
+                console.log('检测到网络连接，初始化同步服务');
+                // 尝试同步
+                if (!syncInProgress && pendingChanges.length > 0) {
+                    console.log(`有 ${pendingChanges.length} 条笔记等待同步`);
+                    syncWithSupabase();
+                }
+            } else {
+                console.log('当前处于离线状态，将仅保存到本地');
+            }
+        }
+
+        // 更新同步状态显示
+        function updateSyncStatus() {
+            const syncStatus = document.getElementById('syncStatus');
+            if (syncStatus) {
+                syncStatus.textContent = isOnline ? '在线' : '离线';
+                syncStatus.className = isOnline ? 'sync-status online' : 'sync-status offline';
+            }
+        }
+
+        // 初始化Supabase连接
+        function initSupabaseConnection() {
+            // 获取存储的Supabase连接信息
+            const supabaseUrl = localStorage.getItem('supabaseUrl');
+            const supabaseKey = localStorage.getItem('supabaseKey');
+            
+            if (supabaseUrl && supabaseKey && isOnline) {
+                try {
+                    console.log('正在初始化Supabase客户端...');
+                    supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+                    console.log('Supabase客户端已初始化');
+                    
+                    // 检查连接是否有效
+                    testSupabaseConnection().then(valid => {
+                        if (valid) {
+                            console.log('Supabase连接有效！');
+                            showNotification('已连接到云端', 'success');
+                            
+                            // 有待同步的内容时，立即同步
+                            if (pendingChanges.length > 0) {
+                                console.log(`开始同步${pendingChanges.length}条待处理笔记...`);
+                                syncWithSupabase();
+                            }
+                        } else {
+                            console.error('Supabase连接无效');
+                            supabaseClient = null;
+                        }
+                    });
+                } catch (error) {
+                    console.error('初始化Supabase失败:', error);
+                    supabaseClient = null;
+                }
+            } else {
+                if (!supabaseUrl || !supabaseKey) {
+                    console.log('未找到Supabase连接信息，请先导入线上笔记');
+                } else if (!isOnline) {
+                    console.log('当前处于离线状态，暂不初始化Supabase');
+                }
+            }
+        }
+
+        // 测试Supabase连接
+        async function testSupabaseConnection() {
+            if (!supabaseClient) return false;
+            
+            try {
+                const { error } = await supabaseClient.from('notes').select('count');
+                return !error;
+            } catch (error) {
+                console.error('测试Supabase连接失败:', error);
+                return false;
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 自动保存
+            let autoSaveTimeout;
+            document.getElementById('editor').addEventListener('input', () => {
+                clearTimeout(autoSaveTimeout);
+                autoSaveTimeout = setTimeout(saveNote, 1000);
+            });
+
+            // 标题更改
+            document.getElementById('noteTitle').addEventListener('input', () => {
+                clearTimeout(autoSaveTimeout);
+                autoSaveTimeout = setTimeout(saveNote, 1000);
+            });
+
+            // 按键绑定
+            document.addEventListener('keydown', (e) => {
+                // Ctrl/Cmd + S 保存
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    saveNote();
+                }
+                // Ctrl/Cmd + P 预览
+                if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                    e.preventDefault();
+                    togglePreview();
+                }
+            });
+
+            // 监听网络状态变化
+            window.addEventListener('online', () => {
+                isOnline = true;
+                updateSyncStatus();
+                showNotification('网络已连接', 'success');
+                
+                // 网络恢复时尝试同步
+                if (supabaseClient) {
+                    syncWithSupabase();
+                }
+            });
+            
+            window.addEventListener('offline', () => {
+                isOnline = false;
+                updateSyncStatus();
+                showNotification('网络已断开，将保存到本地', 'warning');
+            });
+        }
+
+        // 渲染笔记列表
+        function renderNotesList() {
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = '';
+            
+            if (notes.length === 0) {
+                notesList.innerHTML = '<div class="note-item">没有笔记</div>';
+                return;
+            }
+
+            notes.forEach(note => {
+                const noteElement = document.createElement('div');
+                noteElement.className = 'note-item' + (currentNote && note.id === currentNote.id ? ' active' : '');
+                
+                const titleElement = document.createElement('div');
+                titleElement.className = 'note-title';
+                titleElement.textContent = note.title || '无标题笔记';
+                
+                const previewElement = document.createElement('div');
+                previewElement.className = 'note-preview';
+                previewElement.textContent = note.content ? note.content.substring(0, 50) : '';
+                
+                // 添加同步状态指示器
+                if (pendingChanges.includes(note.id)) {
+                    const syncIndicator = document.createElement('span');
+                    syncIndicator.className = 'sync-indicator';
+                    syncIndicator.textContent = '⏱️';
+                    syncIndicator.title = '等待同步';
+                    titleElement.appendChild(syncIndicator);
+                }
+                
+                noteElement.appendChild(titleElement);
+                noteElement.appendChild(previewElement);
+                noteElement.onclick = () => loadNote(note);
+                notesList.appendChild(noteElement);
+            });
+        }
+
+        // 加载笔记
+        function loadNote(note) {
+            currentNote = note;
+            document.getElementById('noteTitle').value = note.title || '';
+            document.getElementById('editor').value = note.content || '';
+            renderNotesList();
+            if (isPreviewMode) {
+                updatePreview();
+            }
+        }
+
+        // 保存笔记
+        function saveNote() {
+            const title = document.getElementById('noteTitle').value;
+            const content = document.getElementById('editor').value;
+
+            if (!title && !content) return; // 不保存空笔记
+
+            if (!currentNote) {
+                currentNote = {
+                    id: Date.now(),
+                    created_at: new Date().toISOString()
+                };
+                notes.unshift(currentNote);
+            }
+
+            currentNote.title = title;
+            currentNote.content = content;
+            currentNote.updated_at = new Date().toISOString();
+
+            // 添加到待同步列表
+            if (!pendingChanges.includes(currentNote.id)) {
+                pendingChanges.push(currentNote.id);
+                localStorage.setItem('pendingChanges', JSON.stringify(pendingChanges));
+                console.log(`笔记 ID:${currentNote.id} 已添加到待同步列表`);
+            }
+
+            // 保存到本地
+            localStorage.setItem('offline_notes', JSON.stringify(notes));
+            console.log('笔记已保存到本地存储');
+            renderNotesList();
+            showNotification('笔记已保存到本地', 'success');
+
+            // 如果在线，尝试同步
+            if (isOnline && supabaseClient) {
+                console.log('检测到网络连接，尝试同步更改');
+                syncWithSupabase();
+            } else {
+                console.log('当前离线，更改将在联网后自动同步');
+            }
+        }
+
+        // 与Supabase同步数据
+        async function syncWithSupabase() {
+            if (!isOnline || !supabaseClient) {
+                console.log('无法同步：' + (!isOnline ? '离线状态' : 'Supabase客户端未初始化'));
+                return;
+            }
+            
+            if (syncInProgress) {
+                console.log('同步已在进行中，跳过');
+                return;
+            }
+            
+            if (pendingChanges.length === 0) {
+                console.log('没有待同步的笔记');
+                return;
+            }
+
+            try {
+                syncInProgress = true;
+                console.log('开始同步数据...');
+                showNotification('正在同步数据...', 'info');
+
+                // 获取待同步的笔记
+                const notesToSync = notes.filter(note => pendingChanges.includes(note.id));
+                console.log(`找到 ${notesToSync.length} 条待同步笔记`);
+                
+                for (const note of notesToSync) {
+                    console.log(`同步笔记 ID:${note.id}, 标题:${note.title}`);
+                    
+                    // 检查服务器上是否有这个笔记
+                    const { data: existingNote, error: checkError } = await supabaseClient
+                        .from('notes')
+                        .select('id, updated_at')
+                        .eq('id', note.id)
+                        .maybeSingle();
+                    
+                    if (checkError) {
+                        console.error('检查笔记存在性失败:', checkError);
+                        throw checkError;
+                    }
+                    
+                    if (existingNote) {
+                        console.log('笔记已存在，执行更新');
+                        // 笔记存在，更新它
+                        const { error: updateError } = await supabaseClient
+                            .from('notes')
+                            .update({
+                                title: note.title,
+                                content: note.content,
+                                updated_at: note.updated_at
+                            })
+                            .eq('id', note.id);
+                        
+                        if (updateError) {
+                            console.error('更新笔记失败:', updateError);
+                            throw updateError;
+                        }
+                        
+                        console.log('笔记更新成功');
+                    } else {
+                        console.log('笔记不存在，执行插入');
+                        // 笔记不存在，创建它
+                        const { error: insertError } = await supabaseClient
+                            .from('notes')
+                            .insert([{
+                                id: note.id,
+                                title: note.title,
+                                content: note.content,
+                                created_at: note.created_at,
+                                updated_at: note.updated_at
+                            }]);
+                        
+                        if (insertError) {
+                            console.error('插入笔记失败:', insertError);
+                            throw insertError;
+                        }
+                        
+                        console.log('笔记插入成功');
+                    }
+                    
+                    // 从待处理列表中移除
+                    const index = pendingChanges.indexOf(note.id);
+                    if (index !== -1) {
+                        pendingChanges.splice(index, 1);
+                        console.log(`笔记 ID:${note.id} 已从待同步列表移除`);
+                    }
+                }
+                
+                // 保存更新后的待处理列表
+                localStorage.setItem('pendingChanges', JSON.stringify(pendingChanges));
+                console.log('待同步列表已更新:', pendingChanges);
+                
+                // 拉取服务器上的最新数据
+                await pullFromSupabase();
+                
+                // 更新最后同步时间
+                lastSyncTime = new Date().toISOString();
+                localStorage.setItem('lastSyncTime', lastSyncTime);
+                console.log('同步时间已更新:', lastSyncTime);
+                
+                showNotification('数据同步完成', 'success');
+                renderNotesList();
+            } catch (error) {
+                console.error('同步数据失败:', error);
+                showNotification('同步失败: ' + error.message, 'error');
+            } finally {
+                syncInProgress = false;
+                console.log('同步过程已完成');
+            }
+        }
+
+        // 从Supabase拉取最新数据
+        async function pullFromSupabase() {
+            if (!supabaseClient) {
+                console.log('Supabase客户端未初始化，无法拉取数据');
+                return;
+            }
+            
+            try {
+                console.log('从Supabase拉取最新数据...');
+                let query = supabaseClient.from('notes').select('*').order('updated_at', { ascending: false });
+                
+                // 如果有上次同步时间，只获取更新的笔记
+                if (lastSyncTime) {
+                    console.log('使用增量同步，上次同步时间:', lastSyncTime);
+                    query = query.gt('updated_at', lastSyncTime);
+                } else {
+                    console.log('执行全量同步');
+                }
+                
+                const { data: serverNotes, error } = await query;
+                
+                if (error) {
+                    console.error('从服务器拉取数据失败:', error);
+                    throw error;
+                }
+                
+                console.log(`从服务器获取了 ${serverNotes ? serverNotes.length : 0} 条笔记`);
+                
+                if (serverNotes && serverNotes.length > 0) {
+                    // 创建ID映射以便快速查找
+                    const noteMap = {};
+                    notes.forEach(note => {
+                        noteMap[note.id] = note;
+                    });
+                    
+                    // 创建待同步笔记的集合，用于快速查找
+                    const pendingNotesSet = new Set(pendingChanges);
+                    
+                    console.log('合并服务器数据到本地...');
+                    
+                    // 合并新笔记或更新现有笔记
+                    serverNotes.forEach(serverNote => {
+                        if (noteMap[serverNote.id]) {
+                            // 如果本地没有待处理的更改，则更新本地笔记
+                            if (!pendingNotesSet.has(serverNote.id)) {
+                                console.log(`更新笔记 ID:${serverNote.id}, 标题:${serverNote.title}`);
+                                noteMap[serverNote.id].title = serverNote.title;
+                                noteMap[serverNote.id].content = serverNote.content;
+                                noteMap[serverNote.id].updated_at = serverNote.updated_at;
+                            } else {
+                                console.log(`跳过更新笔记 ID:${serverNote.id}，因为有本地修改`);
+                            }
+                        } else {
+                            // 添加新笔记
+                            console.log(`添加新笔记 ID:${serverNote.id}, 标题:${serverNote.title}`);
+                            notes.push(serverNote);
+                        }
+                    });
+                    
+                    // 重新排序笔记
+                    notes.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+                    
+                    // 保存到本地
+                    localStorage.setItem('offline_notes', JSON.stringify(notes));
+                    console.log('合并后的笔记已保存到本地');
+                    
+                    if (serverNotes.length > 0) {
+                        showNotification(`已同步 ${serverNotes.length} 条笔记`, 'success');
+                    }
+                } else {
+                    console.log('没有新的笔记需要同步');
+                }
+            } catch (error) {
+                console.error('拉取服务器数据失败:', error);
+                throw error;
+            }
+        }
+
+        // 切换预览模式
+        function togglePreview() {
+            isPreviewMode = !isPreviewMode;
+            const editor = document.getElementById('editor');
+            const preview = document.getElementById('preview');
+            const buttonText = document.getElementById('previewButtonText');
+            
+            if (isPreviewMode) {
+                editor.style.display = 'none';
+                preview.style.display = 'block';
+                buttonText.textContent = '编辑';
+                updatePreview();
+            } else {
+                editor.style.display = 'block';
+                preview.style.display = 'none';
+                buttonText.textContent = '预览';
+            }
+        }
+
+        // 更新预览内容
+        function updatePreview() {
+            const content = document.getElementById('editor').value;
+            document.getElementById('preview').innerHTML = marked.parse(content);
+        }
+
+        // 切换主题
+        function toggleTheme() {
+            const isDark = document.body.getAttribute('data-theme') === 'dark';
+            document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+            updateThemeIcon();
+        }
+
+        // 更新主题图标
+        function updateThemeIcon() {
+            const isDark = document.body.getAttribute('data-theme') === 'dark';
+            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+        }
+
+        // 加载上次编辑的笔记
+        function loadLastEditedNote() {
+            // 加载主题设置
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.body.setAttribute('data-theme', savedTheme);
+            }
+
+            if (notes.length > 0) {
+                // 按更新时间排序
+                notes.sort((a, b) => {
+                    return new Date(b.updated_at) - new Date(a.updated_at);
+                });
+                loadNote(notes[0]);
+            }
+        }
+
+        // 创建新笔记
+        function createNewNote() {
+            currentNote = null;
+            document.getElementById('noteTitle').value = '';
+            document.getElementById('editor').value = '';
+            document.getElementById('preview').innerHTML = '';
+            saveNote();
+        }
+
+        // 显示导入线上笔记窗口
+        function showImportModal() {
+            document.getElementById('importModal').style.display = 'flex';
+        }
+
+        // 关闭模态窗口
+        function closeModal() {
+            document.getElementById('importModal').style.display = 'none';
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification ' + type + ' show';
+            
+            setTimeout(() => {
+                notification.className = 'notification';
+            }, 3000);
+        }
+
+        // 显示加载动画
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+
+        // 隐藏加载动画
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 导入线上笔记
+        async function importOnlineNotes() {
+            const supabaseUrl = document.getElementById('supabaseUrl').value;
+            const supabaseKey = document.getElementById('supabaseKey').value;
+            
+            if (!supabaseUrl || !supabaseKey) {
+                showNotification('请输入Supabase URL和密钥', 'error');
+                return;
+            }
+            
+            try {
+                showLoading();
+                
+                // 保存连接信息
+                localStorage.setItem('supabaseUrl', supabaseUrl);
+                localStorage.setItem('supabaseKey', supabaseKey);
+                
+                // 初始化Supabase客户端
+                supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+                
+                // 测试连接
+                const isValid = await testSupabaseConnection();
+                if (!isValid) {
+                    throw new Error('无法连接到Supabase，请检查您的凭据');
+                }
+                
+                // 获取线上笔记
+                const { data: onlineNotes, error } = await supabaseClient
+                    .from('notes')
+                    .select('*')
+                    .order('updated_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                if (onlineNotes.length === 0) {
+                    showNotification('没有找到线上笔记', 'warning');
+                    closeModal();
+                    hideLoading();
+                    return;
+                }
+                
+                // 将线上笔记与本地笔记合并
+                const existingIds = new Set(notes.map(note => note.id));
+                const pendingChangesSet = new Set(pendingChanges);
+                
+                onlineNotes.forEach(note => {
+                    if (!existingIds.has(note.id)) {
+                        // 新笔记直接添加
+                        notes.push(note);
+                        existingIds.add(note.id);
+                    } else if (!pendingChangesSet.has(note.id)) {
+                        // 更新非本地修改的笔记
+                        const localNote = notes.find(n => n.id === note.id);
+                        const localUpdateTime = new Date(localNote.updated_at);
+                        const serverUpdateTime = new Date(note.updated_at);
+                        
+                        if (serverUpdateTime > localUpdateTime) {
+                            localNote.title = note.title;
+                            localNote.content = note.content;
+                            localNote.updated_at = note.updated_at;
+                        }
+                    }
+                });
+                
+                // 按更新时间排序
+                notes.sort((a, b) => {
+                    return new Date(b.updated_at) - new Date(a.updated_at);
+                });
+                
+                // 保存到本地存储
+                localStorage.setItem('offline_notes', JSON.stringify(notes));
+                
+                // 更新最后同步时间
+                lastSyncTime = new Date().toISOString();
+                localStorage.setItem('lastSyncTime', lastSyncTime);
+                
+                // 更新UI
+                renderNotesList();
+                if (notes.length > 0) {
+                    loadNote(notes[0]);
+                }
+                
+                showNotification(`成功导入 ${onlineNotes.length} 条笔记`, 'success');
+                closeModal();
+            } catch (error) {
+                console.error('导入笔记失败:', error);
+                showNotification('导入失败: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 导出笔记
+        function exportNotes() {
+            if (notes.length === 0) {
+                showNotification('没有笔记可导出', 'warning');
+                return;
+            }
+            
+            try {
+                // 创建一个包含笔记数据的JSON文件
+                const dataStr = JSON.stringify(notes, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                
+                // 创建下载链接
+                const exportFileDefaultName = `笔记备份_${new Date().toISOString().slice(0, 10)}.json`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                showNotification('笔记导出成功', 'success');
+            } catch (error) {
+                console.error('导出笔记失败:', error);
+                showNotification('导出失败: ' + error.message, 'error');
+            }
+        }
+
+        // 强制同步
+        async function forceSync() {
+            if (!isOnline) {
+                showNotification('当前处于离线状态，无法同步', 'warning');
+                return;
+            }
+            
+            if (!supabaseClient) {
+                showNotification('未配置Supabase连接，请先导入线上笔记', 'warning');
+                showImportModal();
+                return;
+            }
+            
+            try {
+                showLoading();
+                await syncWithSupabase();
+                showNotification('同步完成', 'success');
+            } catch (error) {
+                console.error('强制同步失败:', error);
+                showNotification('同步失败: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html> 
