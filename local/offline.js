@@ -77,10 +77,16 @@ async function createOfflineWebPage() {
       const DEFAULT_SUPABASE_URL = '${DEFAULT_SUPABASE_URL}';
       const DEFAULT_SUPABASE_KEY = '${DEFAULT_SUPABASE_KEY}';
       
+      // 全局变量
+      let connectionWizardShown = false;
+      
       // 网页加载完成后初始化
       window.addEventListener('DOMContentLoaded', function() {
         console.log("===== 离线网页模式已启动 =====");
         console.log("这个页面的UI资源可以离线使用，数据将实时从云端获取");
+        
+        // 添加连接向导按钮
+        addConnectionButton();
         
         // 监听网络状态变化
         window.addEventListener('online', updateNetworkStatus);
@@ -92,102 +98,235 @@ async function createOfflineWebPage() {
         // 添加离线提示
         setTimeout(function() {
           if (!localStorage.getItem('hasShownOfflineIntro')) {
-            alert("离线网页笔记已准备就绪！\\n\\n - 网页界面可离线加载\\n - 数据将实时从云端获取\\n - 网络连接断开时会自动提示");
+            alert("离线网页笔记已准备就绪！\\n\\n - 网页界面可离线加载\\n - 数据将实时从云端获取\\n - 如需帮助请点击左下角向导按钮");
             localStorage.setItem('hasShownOfflineIntro', 'true');
           }
+          
+          // 检查是否有连接信息，如果没有则自动显示设置向导
+          checkAndShowConnectionWizard();
         }, 1000);
-        
-        // 添加设置按钮
-        addSettingsButton();
       });
       
-      // 添加设置按钮
-      function addSettingsButton() {
-        const settingsBtn = document.createElement('button');
-        settingsBtn.id = 'offline-settings-btn';
-        settingsBtn.innerText = '⚙️';
-        settingsBtn.title = '设置Supabase连接';
-        settingsBtn.style.position = 'fixed';
-        settingsBtn.style.bottom = '10px';
-        settingsBtn.style.left = '10px';
-        settingsBtn.style.padding = '8px';
-        settingsBtn.style.fontSize = '16px';
-        settingsBtn.style.borderRadius = '50%';
-        settingsBtn.style.backgroundColor = '#f0f0f0';
-        settingsBtn.style.border = '1px solid #ccc';
-        settingsBtn.style.cursor = 'pointer';
-        settingsBtn.style.zIndex = '9999';
+      // 添加连接向导按钮
+      function addConnectionButton() {
+        // 添加设置按钮
+        const connectionBtn = document.createElement('button');
+        connectionBtn.id = 'connection-wizard-btn';
+        connectionBtn.innerText = '🔌 连接向导';
+        connectionBtn.title = '打开Supabase连接向导';
+        connectionBtn.style.position = 'fixed';
+        connectionBtn.style.bottom = '10px';
+        connectionBtn.style.left = '10px';
+        connectionBtn.style.padding = '8px 12px';
+        connectionBtn.style.fontSize = '14px';
+        connectionBtn.style.borderRadius = '4px';
+        connectionBtn.style.backgroundColor = '#4CAF50';
+        connectionBtn.style.color = 'white';
+        connectionBtn.style.border = 'none';
+        connectionBtn.style.cursor = 'pointer';
+        connectionBtn.style.zIndex = '9999';
         
-        settingsBtn.addEventListener('click', showSettingsPanel);
-        document.body.appendChild(settingsBtn);
+        connectionBtn.addEventListener('click', showConnectionWizard);
+        document.body.appendChild(connectionBtn);
       }
       
-      // 显示设置面板
-      function showSettingsPanel() {
-        // 如果已经存在设置面板，则删除
-        const existingPanel = document.getElementById('offline-settings-panel');
-        if (existingPanel) {
-          existingPanel.remove();
-          return;
-        }
+      // 检查并显示连接向导
+      function checkAndShowConnectionWizard() {
+        // 如果没有有效的连接信息且向导尚未显示，则显示连接向导
+        const hasUrl = localStorage.getItem('supabaseUrl');
+        const hasKey = localStorage.getItem('supabaseKey');
         
-        // 创建设置面板
-        const panel = document.createElement('div');
-        panel.id = 'offline-settings-panel';
-        panel.style.position = 'fixed';
-        panel.style.bottom = '50px';
-        panel.style.left = '10px';
-        panel.style.width = '300px';
-        panel.style.padding = '15px';
-        panel.style.backgroundColor = 'white';
-        panel.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
-        panel.style.borderRadius = '5px';
-        panel.style.zIndex = '9998';
+        if ((!hasUrl || !hasKey) && !connectionWizardShown) {
+          connectionWizardShown = true;
+          showConnectionWizard();
+        }
+      }
+      
+      // 显示连接向导
+      function showConnectionWizard() {
+        // 创建向导背景
+        const wizardOverlay = document.createElement('div');
+        wizardOverlay.id = 'connection-wizard-overlay';
+        wizardOverlay.style.position = 'fixed';
+        wizardOverlay.style.top = '0';
+        wizardOverlay.style.left = '0';
+        wizardOverlay.style.width = '100%';
+        wizardOverlay.style.height = '100%';
+        wizardOverlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        wizardOverlay.style.zIndex = '10000';
+        wizardOverlay.style.display = 'flex';
+        wizardOverlay.style.justifyContent = 'center';
+        wizardOverlay.style.alignItems = 'center';
+        
+        // 创建向导面板
+        const wizardPanel = document.createElement('div');
+        wizardPanel.style.width = '500px';
+        wizardPanel.style.maxWidth = '90%';
+        wizardPanel.style.backgroundColor = 'white';
+        wizardPanel.style.borderRadius = '8px';
+        wizardPanel.style.padding = '20px';
+        wizardPanel.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
         
         // 获取当前的Supabase配置
         const currentUrl = localStorage.getItem('supabaseUrl') || DEFAULT_SUPABASE_URL;
         const currentKey = localStorage.getItem('supabaseKey') || DEFAULT_SUPABASE_KEY;
         
-        // 设置面板内容
-        panel.innerHTML = \`
-          <h3 style="margin-top:0;margin-bottom:10px;">Supabase连接设置</h3>
-          <div style="margin-bottom:10px;">
-            <label for="supabase-url" style="display:block;margin-bottom:5px;">Supabase URL:</label>
-            <input type="text" id="supabase-url" value="\${currentUrl}" style="width:100%;padding:5px;">
+        // 创建向导内容
+        wizardPanel.innerHTML = \`
+          <div style="text-align:center;margin-bottom:20px;">
+            <h2 style="margin-top:0;color:#333;">笔记连接向导</h2>
+            <p style="color:#666;">请设置Supabase连接信息以访问您的笔记数据</p>
           </div>
+          
           <div style="margin-bottom:15px;">
-            <label for="supabase-key" style="display:block;margin-bottom:5px;">Supabase Key:</label>
-            <input type="text" id="supabase-key" value="\${currentKey}" style="width:100%;padding:5px;">
+            <label for="wizard-url" style="display:block;margin-bottom:5px;font-weight:bold;">Supabase URL:</label>
+            <input type="text" id="wizard-url" value="\${currentUrl}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
           </div>
-          <div style="display:flex;justify-content:space-between;">
-            <button id="reset-settings" style="padding:5px 10px;">重置</button>
-            <button id="save-settings" style="padding:5px 10px;background-color:#4CAF50;color:white;border:none;border-radius:3px;">保存</button>
+          
+          <div style="margin-bottom:20px;">
+            <label for="wizard-key" style="display:block;margin-bottom:5px;font-weight:bold;">Supabase Key:</label>
+            <input type="text" id="wizard-key" value="\${currentKey}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
           </div>
-          <div style="margin-top:10px;font-size:12px;color:#888;">
-            修改后需要刷新页面才能生效
+          
+          <div style="display:flex;justify-content:space-between;margin-bottom:15px;">
+            <div>
+              <button id="wizard-test" style="padding:10px 15px;background-color:#2196F3;color:white;border:none;border-radius:4px;cursor:pointer;">测试连接</button>
+              <span id="test-result" style="margin-left:10px;font-size:14px;"></span>
+            </div>
+            <button id="wizard-reset" style="padding:10px 15px;background-color:#f0f0f0;border:none;border-radius:4px;cursor:pointer;">重置</button>
+          </div>
+          
+          <div style="margin-bottom:15px;">
+            <div id="connection-options" style="display:flex;flex-direction:column;gap:10px;">
+              <button id="option-default" style="padding:10px;text-align:left;background-color:#f9f9f9;border:1px solid #ddd;border-radius:4px;cursor:pointer;">
+                <strong>使用默认连接</strong><br>
+                <span style="font-size:13px;color:#666;">使用预设的Supabase连接信息</span>
+              </button>
+              <button id="option-custom" style="padding:10px;text-align:left;background-color:#f9f9f9;border:1px solid #ddd;border-radius:4px;cursor:pointer;">
+                <strong>使用自定义连接</strong><br>
+                <span style="font-size:13px;color:#666;">使用自己的Supabase项目信息</span>
+              </button>
+              <button id="option-offline" style="padding:10px;text-align:left;background-color:#f9f9f9;border:1px solid #ddd;border-radius:4px;cursor:pointer;">
+                <strong>仅使用本地功能</strong><br>
+                <span style="font-size:13px;color:#666;">不连接云端，仅使用浏览器本地存储</span>
+              </button>
+            </div>
+          </div>
+          
+          <div style="text-align:center;margin-top:15px;">
+            <button id="wizard-save" style="padding:10px 20px;background-color:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">保存并连接</button>
+            <button id="wizard-close" style="padding:10px 20px;margin-left:10px;background-color:#f0f0f0;border:none;border-radius:4px;cursor:pointer;">稍后设置</button>
+          </div>
+          
+          <div style="margin-top:15px;padding-top:15px;border-top:1px solid #eee;font-size:13px;color:#666;">
+            <p>提示：设置保存后需要刷新页面才能生效。如有问题请联系管理员。</p>
           </div>
         \`;
         
-        document.body.appendChild(panel);
+        // 添加向导到页面
+        wizardOverlay.appendChild(wizardPanel);
+        document.body.appendChild(wizardOverlay);
         
-        // 添加事件监听器
-        document.getElementById('save-settings').addEventListener('click', function() {
-          const newUrl = document.getElementById('supabase-url').value.trim();
-          const newKey = document.getElementById('supabase-key').value.trim();
+        // 添加事件处理
+        document.getElementById('wizard-test').addEventListener('click', function() {
+          const testUrl = document.getElementById('wizard-url').value.trim();
+          const testKey = document.getElementById('wizard-key').value.trim();
+          const resultSpan = document.getElementById('test-result');
+          
+          resultSpan.textContent = '正在测试...';
+          resultSpan.style.color = '#2196F3';
+          
+          // 执行测试连接
+          testSupabaseConnection(testUrl, testKey)
+            .then(isValid => {
+              if (isValid) {
+                resultSpan.textContent = '连接成功!';
+                resultSpan.style.color = '#4CAF50';
+              } else {
+                resultSpan.textContent = '连接失败';
+                resultSpan.style.color = '#F44336';
+              }
+            })
+            .catch(error => {
+              resultSpan.textContent = '测试出错: ' + error.message;
+              resultSpan.style.color = '#F44336';
+            });
+        });
+        
+        document.getElementById('wizard-reset').addEventListener('click', function() {
+          document.getElementById('wizard-url').value = DEFAULT_SUPABASE_URL;
+          document.getElementById('wizard-key').value = DEFAULT_SUPABASE_KEY;
+        });
+        
+        document.getElementById('option-default').addEventListener('click', function() {
+          document.getElementById('wizard-url').value = DEFAULT_SUPABASE_URL;
+          document.getElementById('wizard-key').value = DEFAULT_SUPABASE_KEY;
+        });
+        
+        document.getElementById('option-custom').addEventListener('click', function() {
+          if (document.getElementById('wizard-url').value === DEFAULT_SUPABASE_URL) {
+            document.getElementById('wizard-url').value = '';
+          }
+          if (document.getElementById('wizard-key').value === DEFAULT_SUPABASE_KEY) {
+            document.getElementById('wizard-key').value = '';
+          }
+          document.getElementById('wizard-url').focus();
+        });
+        
+        document.getElementById('option-offline').addEventListener('click', function() {
+          document.getElementById('wizard-url').value = '';
+          document.getElementById('wizard-key').value = '';
+          
+          const resultSpan = document.getElementById('test-result');
+          resultSpan.textContent = '已选择仅本地模式';
+          resultSpan.style.color = '#FF9800';
+        });
+        
+        document.getElementById('wizard-save').addEventListener('click', function() {
+          const newUrl = document.getElementById('wizard-url').value.trim();
+          const newKey = document.getElementById('wizard-key').value.trim();
           
           // 保存到localStorage
-          localStorage.setItem('supabaseUrl', newUrl);
-          localStorage.setItem('supabaseKey', newKey);
+          if (newUrl && newKey) {
+            localStorage.setItem('supabaseUrl', newUrl);
+            localStorage.setItem('supabaseKey', newKey);
+            localStorage.setItem('connectionMode', 'cloud');
+          } else {
+            // 如果URL和Key为空，则设置为本地模式
+            localStorage.removeItem('supabaseUrl');
+            localStorage.removeItem('supabaseKey');
+            localStorage.setItem('connectionMode', 'local');
+          }
           
-          // 显示成功消息
-          alert('设置已保存，请刷新页面以应用更改');
-          panel.remove();
+          // 显示成功消息并刷新页面
+          alert('设置已保存，页面将刷新以应用新的连接设置');
+          wizardOverlay.remove();
+          location.reload();
         });
         
-        document.getElementById('reset-settings').addEventListener('click', function() {
-          document.getElementById('supabase-url').value = DEFAULT_SUPABASE_URL;
-          document.getElementById('supabase-key').value = DEFAULT_SUPABASE_KEY;
+        document.getElementById('wizard-close').addEventListener('click', function() {
+          wizardOverlay.remove();
         });
+      }
+      
+      // 测试Supabase连接
+      async function testSupabaseConnection(url, key) {
+        if (!url || !key) return false;
+        
+        try {
+          const response = await fetch(\`\${url}/rest/v1/notes?select=count\`, {
+            method: 'GET',
+            headers: {
+              'apikey': key,
+              'Authorization': \`Bearer \${key}\`
+            }
+          });
+          
+          return response.ok;
+        } catch (error) {
+          console.error('测试连接失败:', error);
+          return false;
+        }
       }
       
       // 更新网络状态指示
@@ -267,11 +406,11 @@ async function createOfflineWebPage() {
             console.error('网络请求失败:', error);
             
             // 检查是否为Supabase请求
-            if (url.includes('supabase')) {
+            if (url && typeof url === 'string' && url.includes('supabase')) {
               // 显示友好的错误提示
               const status = document.getElementById('network-status');
               if (status) {
-                status.textContent = '无法连接到云服务 - 点击设置';
+                status.textContent = '连接问题 - 点击设置';
                 status.style.backgroundColor = '#F44336';
                 status.style.color = 'white';
                 status.style.opacity = '1';
@@ -279,7 +418,7 @@ async function createOfflineWebPage() {
                 
                 // 添加点击打开设置面板的功能
                 status.onclick = function() {
-                  showSettingsPanel();
+                  showConnectionWizard();
                 };
               }
               
@@ -295,6 +434,46 @@ async function createOfflineWebPage() {
             throw error;
           });
       };
+      
+      // 修复初始化问题
+      function fixInitializationIssues() {
+        // 等待页面上的元素加载完成
+        const checkInterval = setInterval(function() {
+          // 检查是否有导入按钮
+          const importBtn = document.querySelector('button[data-action="import"]');
+          if (importBtn) {
+            clearInterval(checkInterval);
+            
+            // 修改导入按钮行为
+            const originalClick = importBtn.onclick;
+            importBtn.onclick = function(e) {
+              // 检查是否有Supabase配置
+              const hasUrl = localStorage.getItem('supabaseUrl');
+              const hasKey = localStorage.getItem('supabaseKey');
+              
+              if (!hasUrl || !hasKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                showConnectionWizard();
+                return false;
+              }
+              
+              // 如果有配置，则使用原始点击处理
+              if (originalClick) {
+                return originalClick.call(this, e);
+              }
+            };
+            
+            console.log('已修复导入按钮行为');
+          }
+          
+          // 如果5秒后仍未找到，则停止检查
+        }, 200);
+        
+        setTimeout(function() {
+          clearInterval(checkInterval);
+        }, 5000);
+      }
       
       // 添加自动重试逻辑（针对Supabase连接）
       // 当应用初始化后，如果发现Supabase连接无效，可以尝试重试
@@ -348,9 +527,61 @@ async function createOfflineWebPage() {
         }
       }
       
-      // 在窗口加载完成后添加重试逻辑
+      // 修复导入的错误处理
+      function fixImportErrorHandling() {
+        // 如果存在NoteApp对象，修改其导入函数
+        if (window.NoteApp && typeof window.NoteApp.importOnlineNotes === 'function') {
+          const originalImport = window.NoteApp.importOnlineNotes;
+          
+          window.NoteApp.importOnlineNotes = function() {
+            try {
+              // 检查是否有连接信息
+              const hasUrl = localStorage.getItem('supabaseUrl');
+              const hasKey = localStorage.getItem('supabaseKey');
+              
+              if (!hasUrl || !hasKey) {
+                console.warn('未找到Supabase连接信息，显示连接向导');
+                showConnectionWizard();
+                return Promise.reject(new Error('请先设置连接信息'));
+              }
+              
+              return originalImport.apply(this, arguments).catch(err => {
+                console.error('导入失败:', err);
+                
+                // 显示连接向导
+                setTimeout(() => {
+                  showConnectionWizard();
+                }, 500);
+                
+                throw err;
+              });
+            } catch (err) {
+              console.error('执行导入函数时出错:', err);
+              setTimeout(() => {
+                showConnectionWizard();
+              }, 500);
+              return Promise.reject(err);
+            }
+          };
+          
+          console.log('已修复导入错误处理');
+        }
+      }
+      
+      // 在窗口加载完成后添加各种修复
       window.addEventListener('load', function() {
-        setTimeout(addRetryLogic, 1000); // 延迟1秒添加重试逻辑，确保应用已初始化
+        setTimeout(function() {
+          // 添加重试逻辑
+          addRetryLogic();
+          
+          // 修复初始化问题
+          fixInitializationIssues();
+          
+          // 修复导入错误处理
+          fixImportErrorHandling();
+          
+          console.log('已应用所有修复和增强功能');
+        }, 1000); // 延迟1秒添加修复逻辑，确保应用已初始化
       });
       
       // 在控制台显示离线网页信息
@@ -371,8 +602,9 @@ async function createOfflineWebPage() {
     console.log('此离线网页版本:');
     console.log(' - 网页界面可完全离线加载');
     console.log(' - 数据部分需要网络连接');
-    console.log(' - 添加了网络状态指示器和连接设置功能');
+    console.log(' - 添加了连接向导和网络状态指示器');
     console.log(' - 增强了错误处理和自动重试功能');
+    console.log(' - 提供了更好的初始化体验');
     
     return true;
   } catch (error) {
@@ -438,27 +670,29 @@ async function packageOffline() {
 ## 使用方法
 1. 解压ZIP文件
 2. 双击打开"离线笔记.html"文件到浏览器中
-3. 此文件的界面可以离线加载，但数据同步需要网络连接
+3. 第一次使用时会显示连接向导，按提示完成设置
 
-## 功能
+## 主要功能
 - 网页界面离线加载，加快访问速度
 - 数据实时从云端获取
 - 响应式设计，适配各种设备
 - 主题切换功能
 - 支持Markdown格式编辑预览
-- 网络状态指示器和连接设置
+- 网络状态指示器和连接向导
 - 自动重试连接逻辑
 
 ## 连接问题？
 如果您遇到连接问题，可以：
-1. 点击页面左下角的⚙️设置按钮
-2. 检查Supabase连接信息是否正确
-3. 如有需要，请咨询管理员获取正确的连接信息
-4. 修改后刷新页面
+1. 点击页面左下角的"🔌 连接向导"按钮
+2. 选择适合您的连接方式：
+   - 使用默认连接
+   - 使用自定义连接（需管理员提供信息）
+   - 仅使用本地功能（不需网络）
+3. 根据提示设置并保存
 
 ## 离线说明
 - 此版本仅将网页界面资源离线化
-- 数据部分仍需要网络连接
+- 数据部分仍需要网络连接（除非选择仅本地模式）
 - 如果网络连接不可用，将显示明显提示
 - 网络恢复后可自动继续使用
     `, { name: 'README.txt' });
