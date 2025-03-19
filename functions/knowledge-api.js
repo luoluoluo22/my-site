@@ -135,7 +135,8 @@ const handler = async (event, context) => {
     const { data: notes, error } = await supabaseClient
       .from('notes')
       .select('title, content, updated_at')
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(100);
       
     if (error) {
       console.error('Supabase查询错误:', error);

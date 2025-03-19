@@ -16,7 +16,7 @@ def test_knowledge_api():
     
     data = {
         'knowledge_id': 'notes',
-        'query': '测试查询',
+        'query': '硅基',
         'retrieval_setting': {
             'top_k': 3,
             'score_threshold': 0.1

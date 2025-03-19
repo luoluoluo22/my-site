@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instruction>
+    <task>知识库查询、网页搜索、发消息给Quicker</task>
+    <description>根据用户输入执行以下一个或多个操作：
+        1. 优先从本地知识库查询相关信息
+        2. 如果知识库无相关信息，可选择搜索网页内容
+        3. 根据需要发送消息到Quicker（独立功能）
+    </description>
+    <input>
+        <user_query>{{查询关键字}}</user_query>
+        <options>
+            <knowledge_base>true</knowledge_base>
+            <web_search>false</web_search>
+            <send_message>false</send_message>
+        </options>
+        <message>{{发送到Quicker的消息}}</message>
+    </input>
+    <output>
+        <knowledge_base_result>{{知识库查询结果}}</knowledge_base_result>
+        <web_result>{{网页搜索结果，仅在知识库无结果且启用网页搜索时使用}}</web_result>
+        <message_status>{{消息发送状态，仅在需要发送消息时使用}}</message_status>
+    </output>
+    <example>
+        <user_query>API Key</user_query>
+        <options>
+            <knowledge_base>true</knowledge_base>
+            <web_search>false</web_search>
+            <send_message>false</send_message>
+        </options>
+        <knowledge_base_result>sk-xxxxx</knowledge_base_result>
+    </example>
+    <example>
+        <user_query>今天天气</user_query>
+        <options>
+            <knowledge_base>true</knowledge_base>
+            <web_search>true</web_search>
+            <send_message>true</send_message>
+        </options>
+        <knowledge_base_result>未找到相关信息</knowledge_base_result>
+        <web_result>今天多云转雨</web_result>
+        <message>记得带伞</message>
+        <message_status>消息已发送到Quicker</message_status>
+    </example>
+    <instructions>
+        1. 所有查询默认优先从知识库搜索
+        2. 仅当知识库无相关信息且明确需要时，才进行网页搜索
+        3. 发送消息到Quicker是独立功能，根据具体需求决定是否使用
+        4. 提取关键词时应准确反映用户查询意图
+        5. 对于复杂查询，可以提取多个关键词组合使用
+        6. 如果启用了多个功能，应按顺序执行并返回相应结果
+        7. 每个功能都是可选的，可以根据需要单独使用
+    </instructions>
+</instruction> 

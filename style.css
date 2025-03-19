@@ -965,3 +965,51 @@ body.preview-mode .command-results-container {
 .command-results-container::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* 加载更多按钮样式 */
+.load-more-btn {
+    display: block;
+    width: 90%;
+    margin: 10px auto;
+    padding: 8px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.load-more-btn:hover {
+    background-color: var(--bg-secondary);
+}
+
+.load-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 加载中动画 */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 50px;
+}
+
+.loading-indicator::after {
+    content: "";
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ccc;
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: loading-spin 0.8s linear infinite;
+}
+
+@keyframes loading-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

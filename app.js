@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 
 // 常量定义
 const SITE_PASSWORD = '123456' // 网站访问密码
+const PAGE_SIZE = 10 // 每页加载的笔记数量
+const MAX_VISIBLE_NOTES = 50 // 最大可见笔记数量
 
 // 初始化Supabase客户端
 const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://gptacdyjxmjzlmgwjmms.supabase.co'
@@ -864,6 +866,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 检测并初始化命令执行方式
   detectExecutionMode()
+
+  // 加载初始笔记
+  await loadInitialNotesWithCache()
+  setupInfiniteScroll()
 })
 
 // 下载本地版本
@@ -889,6 +895,103 @@ async function downloadLocal() {
     console.error('下载失败:', error)
     showMessage('下载失败，请稍后重试', 'error')
   }
+}
+
+// 添加分页加载函数
+async function loadNotesWithPagination(page = 0, searchTerm = '') {
+  try {
+    showLoading('加载笔记中...');
+    let query = supabaseClient
+      .from('notes')
+      .select('id, title, content, updated_at')
+      .order('updated_at', { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%`);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    
+    if (page === 0) {
+      notes = data || [];
+    } else {
+      notes = [...notes, ...data];
+    }
+    
+    renderNotesList();
+    hideLoading();
+    
+    // 缓存首页数据
+    if (page === 0) {
+      localStorage.setItem('cachedNotes', JSON.stringify(notes));
+      localStorage.setItem('notesLastUpdated', new Date().toISOString());
+    }
+    
+    return data.length === PAGE_SIZE; // 返回是否有更多数据
+  } catch (error) {
+    console.error('加载笔记失败:', error);
+    hideLoading();
+    showNotification('加载笔记失败，请检查网络连接', 'error');
+    return false;
+  }
+}
+
+// 添加"加载更多"功能
+function setupInfiniteScroll() {
+  let currentPage = 0;
+  let hasMore = true;
+  let isLoading = false;
+  const notesList = document.getElementById('notesList');
+  
+  // 添加滚动监听
+  notesList.addEventListener('scroll', async () => {
+    if (!hasMore || isLoading) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = notesList;
+    if (scrollTop + clientHeight >= scrollHeight - 100) {
+      isLoading = true;
+      currentPage++;
+      hasMore = await loadNotesWithPagination(currentPage);
+      isLoading = false;
+    }
+  });
+  
+  // 添加"加载更多"按钮
+  const loadMoreBtn = document.createElement('button');
+  loadMoreBtn.innerText = '加载更多';
+  loadMoreBtn.className = 'load-more-btn';
+  loadMoreBtn.onclick = async () => {
+    if (!hasMore || isLoading) return;
+    isLoading = true;
+    currentPage++;
+    hasMore = await loadNotesWithPagination(currentPage);
+    isLoading = false;
+    
+    if (!hasMore) {
+      loadMoreBtn.innerText = '已加载全部';
+      loadMoreBtn.disabled = true;
+    }
+  };
+  notesList.parentNode.appendChild(loadMoreBtn);
+}
+
+// 使用缓存数据快速加载首屏
+function loadInitialNotesWithCache() {
+  const cachedNotes = JSON.parse(localStorage.getItem('cachedNotes') || '[]');
+  const lastUpdated = localStorage.getItem('notesLastUpdated');
+  const cacheAge = lastUpdated ? (new Date() - new Date(lastUpdated)) / 1000 / 60 : 999;
+  
+  if (cachedNotes.length > 0 && cacheAge < 30) { // 缓存不超过30分钟
+    notes = cachedNotes;
+    renderNotesList();
+    console.log('从缓存加载首屏数据');
+  }
+  
+  // 无论是否使用缓存，都加载最新数据
+  loadNotesWithPagination(0);
 }
 
 // 导出函数

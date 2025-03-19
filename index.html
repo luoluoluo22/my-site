@@ -2,9 +2,15 @@
 <html>
   <head>
     <title>我的个人管理</title>
+    <!-- 预加载关键资源 -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="app.js" as="script">
+    <link rel="preconnect" href="https://gptacdyjxmjzlmgwjmms.supabase.co">
+    <link rel="dns-prefetch" href="https://gptacdyjxmjzlmgwjmms.supabase.co">
+    
     <link rel="stylesheet" href="style.css" />
     <!-- marked.js用于Markdown解析 -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
     <style>
       /* 初始隐藏所有面板 */
       #loginPanel,
